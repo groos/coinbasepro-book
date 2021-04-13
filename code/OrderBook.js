@@ -15,26 +15,72 @@ class OrderBook {
          fetch('https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3')
          .then(res => res.json())
          .then((json) => {
-             // Response looks like:
+             // Response looks like: [ price, size, order_id ]
              /*
                 { 
-                    bids: [
+                    bids: [ // bids = amount of money a buyer is willing to pay
                         [ '62883.81', '4771', '2b6e645c-29c8-4333-81b0-042932296317' ],
                         [ '62883.8', '6020', '1c75604c-274d-4474-9560-1c844393d84e' ],
                         [ '62883.79', '6989', '467a8da8-15cd-4836-bece-1cbd9983d89a' ]
                 ], 
-                asks: [
+                asks: [ // asks = amount of money a seller is willing to sell for
                         [ '62883.85', '4771', '8fc58e9d-d3ed-49da-b686-77cca3bb04cd' ],
                         [ '62883.86', '6020', '0f721713-e12b-43bb-a4b1-5e44a0135055' ],
                         [ '62883.87', '6989', 'e4116e21-74b8-4381-986b-d699425e8441' ]
                 ] 
             }
              */
-             console.log(json);
+
+            
+            json.bids.forEach((bid) => {
+                console.log('adding bid');
+                const orderId = bid[2];
+                this.messages[orderId] = {
+                    type: 'open',
+                    side: 'buy',
+                    order_id: orderId,
+                    price: bid[0],
+                    size: bid[1]
+                };
+            });
+
+            json.asks.forEach((bid) => {
+                const orderId = bid[2];
+                this.messages[orderId] = {
+                    type: 'open',
+                    side: 'sell',
+                    order_id: orderId,
+                    price: bid[0],
+                    size: bid[1]
+                };
+            });
+
+            console.log(`bids: ${json.bids.length}`);
+            console.log(`asks: ${json.asks.length}`);
+            console.log(`total orders: ${Object.keys(this.messages).length}`);
          });
 
          // this will need to be async
         //return new Promise();
+    }
+
+    messageHandlers = {
+        open: (message) => {
+            this.messages[message.order_id] = message;
+            console.log('adding message');
+        },
+        done: (message) => {
+            delete this.messages[message.order_id];
+            console.log('deleting message');
+        },
+        change: (message) => {
+            // change - an existing order needs to be changed
+        },
+        match: (message) => {
+             // match - a trade or partial trade occurred 
+                // - remove it from the book, or update the size remaining if it's partial
+                // this is a Tick (Market Event) - when this happens, we want to print the current best bid/ask in the book
+        }
     }
 
     processMessages() {
@@ -42,22 +88,12 @@ class OrderBook {
     }
 
     queueMessage(message) {
-        if (!this.bookInitialized) {
-            // use REST api to get current book snapshot
-            getCBSnapshot();
-            //processMessages();
-        };
+        const handler = this.messageHandlers[message.type];
+        if (handler) {
+            handler(message);
+        }
 
-        // open - add it to this book
-
-        // done - remove it from this book
-
-        // match - a trade or partial trade occurred 
-            // - remove it from the book, or update the size remaining if it's partial
-            // this is a Tick (Market Event) - when this happens, we want to print the current best bid/ask in the book
-
-        // change - an existing order needs to be changed
-
+        console.log(Object.keys(this.messages).length);
     }
 
     printTickInfo() {
