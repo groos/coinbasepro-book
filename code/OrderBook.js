@@ -7,6 +7,9 @@ class OrderBook {
         this.messages = [];
         this.orders = {};
 
+        this.bestBids = [];
+        this.bestAsks = [];
+
         // put async functions in here that interrupt our message processing
         this.interruptions = [];
         this.run = true;
@@ -29,6 +32,7 @@ class OrderBook {
             }
 
             // process the messages in order
+            // as we go through, do comparisons to update bestBids/bestAsks as necessary
         }
     }
     
