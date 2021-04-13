@@ -1,0 +1,19 @@
+{
+  "name": "cmt-challenge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/groos/cmt-challenge.git"
+  },
+  "author": "Nick Groos",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/groos/cmt-challenge/issues"
+  },
+  "homepage": "https://github.com/groos/cmt-challenge#readme"
+}
