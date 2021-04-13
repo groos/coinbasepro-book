@@ -27,21 +27,23 @@ const run = () => {
         const parsedMessage = JSON.parse(msg);
 
         console.log(`message type: ${parsedMessage.type}`);
-        console.log(parsedMessage);
+        //console.log(parsedMessage);
 
         book.queueMessage(parsedMessage);
     });
 
-    // wsClient.on('open', () => {
-    //     const subscribeRequest = {
-    //         type: 'subscribe',
-    //         product_ids: ['BTC-USD'],
-    //         channels: ['full']
-    //     };
+    wsClient.on('open', () => {
+        const subscribeRequest = {
+            type: 'subscribe',
+            product_ids: ['BTC-USD'],
+            channels: ['full']
+        };
 
-    //     console.log('sending subscribe request');
-    //     wsClient.send(JSON.stringify(subscribeRequest));
-    // });
+        book.initialize();
+
+        console.log('sending subscribe request');
+        wsClient.send(JSON.stringify(subscribeRequest));
+    });
 
     wsClient.on('close', () => {
         console.log('connection closed');

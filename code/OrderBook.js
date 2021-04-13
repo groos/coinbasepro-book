@@ -3,94 +3,72 @@ const fetch = require('node-fetch');
 class OrderBook {
     constructor() {
         console.log('in order book constructor');
-        this.bookInitialized = false;
+        
         this.messages = [];
         this.orders = {};
 
         this.bestBids = [];
         this.bestAsks = [];
 
-        // put async functions in here that interrupt our message processing
-        this.interruptions = [];
         this.run = true;
     }
 
-    
-    processMessages() {
-        /*
-            idea:
-                - run an infinite loop that goes through the message queue
-                - inside the loop we check if there are an tasks we need to run (one will be getting the CB book)
-                - await the task, then proceed with the infinite loop
-        */
+    initialize() {
+        console.log('calling get cb snapshot')
+        fetch('https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3')
+        .then(res => res.json())
+        .then((json) => {
+            // Response looks like: [ price, size, order_id ]
+            /*
+               { 
+                   bids: [ // bids = amount of money a buyer is willing to pay
+                       [ '62883.81', '4771', '2b6e645c-29c8-4333-81b0-042932296317' ],
+                       [ '62883.8', '6020', '1c75604c-274d-4474-9560-1c844393d84e' ],
+                       [ '62883.79', '6989', '467a8da8-15cd-4836-bece-1cbd9983d89a' ]
+               ], 
+               asks: [ // asks = amount of money a seller is willing to sell for
+                       [ '62883.85', '4771', '8fc58e9d-d3ed-49da-b686-77cca3bb04cd' ],
+                       [ '62883.86', '6020', '0f721713-e12b-43bb-a4b1-5e44a0135055' ],
+                       [ '62883.87', '6989', 'e4116e21-74b8-4381-986b-d699425e8441' ]
+               ] 
+           }
+            */
+           
+           json.bids.forEach((bid) => {
+               const orderId = bid[2];
+               this.orders[orderId] = {
+                   type: 'open',
+                   side: 'buy',
+                   order_id: orderId,
+                   price: bid[0],
+                   size: bid[1]
+               };
+           });
 
-        while (this.run) {
-            if (this.interruptions.length) {
-                const interruption = this.interruptions[0];
-                await interruption();
-                this.interruptions = this.interruptions.shift();
-            }
+           json.asks.forEach((bid) => {
+               const orderId = bid[2];
+               this.orders[orderId] = {
+                   type: 'open',
+                   side: 'sell',
+                   order_id: orderId,
+                   price: bid[0],
+                   size: bid[1]
+               };
+           });
 
-            // process the messages in order
-            // as we go through, do comparisons to update bestBids/bestAsks as necessary
-        }
+           console.log(`bids: ${json.bids.length}`);
+           console.log(`asks: ${json.asks.length}`);
+           console.log(`total orders: ${Object.keys(this.orders).length}`);
+
+           this.processMessagesLoop();
+        });
     }
-    
-    getCBSnapshot() {
-         // use REST api to get current book snapshot
-         // GET /products/BTC-USD/book
 
+    processMessagesLoop() {
+        console.log(`ready to process messages: ${this.messages.length}`);
+        
 
-         fetch('https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3')
-         .then(res => res.json())
-         .then((json) => {
-             // Response looks like: [ price, size, order_id ]
-             /*
-                { 
-                    bids: [ // bids = amount of money a buyer is willing to pay
-                        [ '62883.81', '4771', '2b6e645c-29c8-4333-81b0-042932296317' ],
-                        [ '62883.8', '6020', '1c75604c-274d-4474-9560-1c844393d84e' ],
-                        [ '62883.79', '6989', '467a8da8-15cd-4836-bece-1cbd9983d89a' ]
-                ], 
-                asks: [ // asks = amount of money a seller is willing to sell for
-                        [ '62883.85', '4771', '8fc58e9d-d3ed-49da-b686-77cca3bb04cd' ],
-                        [ '62883.86', '6020', '0f721713-e12b-43bb-a4b1-5e44a0135055' ],
-                        [ '62883.87', '6989', 'e4116e21-74b8-4381-986b-d699425e8441' ]
-                ] 
-            }
-             */
-
-            
-            json.bids.forEach((bid) => {
-                console.log('adding bid');
-                const orderId = bid[2];
-                this.orders[orderId] = {
-                    type: 'open',
-                    side: 'buy',
-                    order_id: orderId,
-                    price: bid[0],
-                    size: bid[1]
-                };
-            });
-
-            json.asks.forEach((bid) => {
-                const orderId = bid[2];
-                this.orders[orderId] = {
-                    type: 'open',
-                    side: 'sell',
-                    order_id: orderId,
-                    price: bid[0],
-                    size: bid[1]
-                };
-            });
-
-            console.log(`bids: ${json.bids.length}`);
-            console.log(`asks: ${json.asks.length}`);
-            console.log(`total orders: ${Object.keys(this.orders).length}`);
-         });
-
-         // this will need to be async
-        //return new Promise();
+        setImmediate(this.processMessagesLoop.bind(this));
     }
 
     messageHandlers = {
@@ -113,9 +91,10 @@ class OrderBook {
     }
 
     queueMessage(message) {
-        // TODO - these need to go into an array or something with FIFO properties, then they can be processed once we are synced up with CB Product book
+        console.log(`queuing message: ${message.type}`);
+
         this.messages.push(message);
-        console.log(Object.keys(this.orders).length);
+        console.log(`total messages queued: ${Object.keys(this.messages).length}`);
     }
 
     printTickInfo() {
