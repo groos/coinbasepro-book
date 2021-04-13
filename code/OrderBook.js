@@ -4,7 +4,32 @@ class OrderBook {
     constructor() {
         console.log('in order book constructor');
         this.bookInitialized = false;
+        this.messages = [];
         this.orders = {};
+
+        // put async functions in here that interrupt our message processing
+        this.interruptions = [];
+        this.run = true;
+    }
+
+    
+    processMessages() {
+        /*
+            idea:
+                - run an infinite loop that goes through the message queue
+                - inside the loop we check if there are an tasks we need to run (one will be getting the CB book)
+                - await the task, then proceed with the infinite loop
+        */
+
+        while (this.run) {
+            if (this.interruptions.length) {
+                const interruption = this.interruptions[0];
+                await interruption();
+                this.interruptions = this.interruptions.shift();
+            }
+
+            // process the messages in order
+        }
     }
     
     getCBSnapshot() {
@@ -83,16 +108,9 @@ class OrderBook {
         }
     }
 
-    processMessages() {
-
-    }
-
     queueMessage(message) {
-        const handler = this.messageHandlers[message.type];
-        if (handler) {
-            handler(message);
-        }
-
+        // TODO - these need to go into an array or something with FIFO properties, then they can be processed once we are synced up with CB Product book
+        this.messages.push(message);
         console.log(Object.keys(this.orders).length);
     }
 

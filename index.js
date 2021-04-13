@@ -19,8 +19,6 @@ const cbWebsocket = 'wss://ws-feed-public.sandbox.pro.coinbase.com';
 const run = () => {
     const book = new OrderBook();
 
-    book.getCBSnapshot();
-
     // connect to wss://ws-feed-public.sandbox.pro.coinbase.com via websocket
     // subscribe to BTC-USD market data
     const wsClient = new WebSocket(cbWebsocket)
