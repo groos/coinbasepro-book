@@ -4,7 +4,7 @@ class OrderBook {
     constructor() {
         console.log('in order book constructor');
         this.bookInitialized = false;
-        this.messages = {};
+        this.orders = {};
     }
     
     getCBSnapshot() {
@@ -35,7 +35,7 @@ class OrderBook {
             json.bids.forEach((bid) => {
                 console.log('adding bid');
                 const orderId = bid[2];
-                this.messages[orderId] = {
+                this.orders[orderId] = {
                     type: 'open',
                     side: 'buy',
                     order_id: orderId,
@@ -46,7 +46,7 @@ class OrderBook {
 
             json.asks.forEach((bid) => {
                 const orderId = bid[2];
-                this.messages[orderId] = {
+                this.orders[orderId] = {
                     type: 'open',
                     side: 'sell',
                     order_id: orderId,
@@ -57,7 +57,7 @@ class OrderBook {
 
             console.log(`bids: ${json.bids.length}`);
             console.log(`asks: ${json.asks.length}`);
-            console.log(`total orders: ${Object.keys(this.messages).length}`);
+            console.log(`total orders: ${Object.keys(this.orders).length}`);
          });
 
          // this will need to be async
@@ -66,11 +66,11 @@ class OrderBook {
 
     messageHandlers = {
         open: (message) => {
-            this.messages[message.order_id] = message;
+            this.orders[message.order_id] = message;
             console.log('adding message');
         },
         done: (message) => {
-            delete this.messages[message.order_id];
+            delete this.orders[message.order_id];
             console.log('deleting message');
         },
         change: (message) => {
@@ -93,7 +93,7 @@ class OrderBook {
             handler(message);
         }
 
-        console.log(Object.keys(this.messages).length);
+        console.log(Object.keys(this.orders).length);
     }
 
     printTickInfo() {
