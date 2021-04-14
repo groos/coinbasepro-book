@@ -67,7 +67,7 @@ class OrderBook {
         this.bestAsks = util.sortAndTake5Best(this.bestAsks, true);
         console.log(`best asks: ${JSON.stringify(this.bestAsks)}`);
 
-            json.bids.forEach((bid) => {
+        json.bids.forEach((bid) => {
                 const orderId = bid[2];
 
                 const order = {
@@ -130,7 +130,7 @@ class OrderBook {
         done: (message) => {
             //{"type":"done","side":"sell","product_id":"BTC-USD","time":"2021-04-14T13:35:16.760150Z","sequence":309764200,"order_id":"6725d097-07c4-4ab9-bc5d-243ef8059f41","reason":"filled","price":"64192.1","remaining_size":"0"} 
             delete this.orders[message.order_id];
-            
+
             this.bestBids = this.bestBids.filter((bid) => {
                 return bid.order_id !== message.order_id;
             });
@@ -150,6 +150,8 @@ class OrderBook {
              // match - a trade or partial trade occurred 
                 // - remove it from the book, or update the size remaining if it's partial
                 // this is a Tick (Market Event) - when this happens, we want to print the current best bid/ask in the book
+
+            this.printTickInfo();
         }
     }
 
@@ -162,7 +164,20 @@ class OrderBook {
     }
 
     printTickInfo() {
-        // get the "best" bids and ask fors the current tick and print them like
+        this.bestBids = util.sortAndTake5Best(this.bestBids, false);
+        this.bestAsks = util.sortAndTake5Best(this.bestAsks, true);
+
+        console.log('');
+        this.bestAsks.forEach((ask) => {
+            console.log(`${util.formatNumber(ask.size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
+        });
+
+        console.log(`---------------------`);
+
+        this.bestBids.forEach((bid) => {
+            console.log(`${util.formatNumber(bid.size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
+        });
+        console.log('');
 
         /*
             1.50000 @ 60858.43

@@ -14,6 +14,9 @@ const utils = {
 
         sorted.splice(5);
         return sorted;
+    },
+    formatNumber: (n, decimalPlaces) => {
+        return Number(n).toFixed(decimalPlaces);
     }
 };
 
