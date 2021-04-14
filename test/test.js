@@ -41,7 +41,7 @@ describe('Add/Remove Book Orders', () => {
             opens.forEach((m) => {
                 book.queueMessage(m);
             });
-            
+
             assert.strictEqual(book.messages.length, opens.length);
         })
     });
@@ -57,6 +57,8 @@ describe('Order Matches', () => {
 
 describe('Inside Levels', () => {
     const book = new OrderBook();
+
+    // TODO - add bids and asks, and confirm the lowest ask is never less than or equal the highest bid
 })
 
 

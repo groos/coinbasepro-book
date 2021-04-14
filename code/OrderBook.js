@@ -141,6 +141,45 @@ class OrderBook {
         },
         change: (message) => {
             // change - an existing order needs to be changed
+
+            /*
+                When a market order using dc self-trade prevention encounters an open limit order, 
+                the behavior depends on which fields for the market order message were specified. 
+                If funds and size are specified for a buy order, 
+                then size for the market order will be decremented internally within the matching engine and funds will remain unchanged. 
+                The intent is to offset your target size without limiting your buying power.
+                 If size is not specified, then funds will be decremented. 
+                 For a market sell, the size will be decremented when encountering existing limit orders.
+            */
+
+            const order = this.orders[message.order_id];
+
+            if (order) {
+                console.log(`Changing order for ${message.order_id}`);
+
+                order.size = message.new_size ? message.new_size : order.size;
+                order.size = message.new_funds ? message.new_funds : order.size;
+
+                this.orders[message.order_id] = order;
+
+                const bids = this.bestBids.reduce((total, bid) => {
+                    if (bid.order_id === order.order_id) bid.size = order.size;
+
+                    total.push(bid);
+                    return total;
+                }, []);
+
+                this.bestBids = bids;
+
+                const asks = this.bestAsks.reduce((total, ask) => {
+                    if (ask.order_id === order.order_id) ask.size = order.size;
+
+                    total.push(bid);
+                    return total;
+                }, []);
+
+                this.bestAsks = asks;
+            }
             
             console.log(`In Change Handler`)
         },
@@ -169,13 +208,15 @@ class OrderBook {
 
         console.log('');
         this.bestAsks.forEach((ask) => {
-            console.log(`${util.formatNumber(ask.size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
+            const size = ask.size ? ask.size : ask.remaining_size;
+            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
         });
 
         console.log(`---------------------`);
 
         this.bestBids.forEach((bid) => {
-            console.log(`${util.formatNumber(bid.size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
+            const size = bid.size ? bid.size : bid.remaining_size;
+            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
         });
         console.log('');
 
