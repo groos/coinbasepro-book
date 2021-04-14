@@ -15,7 +15,71 @@ const opens = [
         side: 'buy',
         product_id: 'BTC-USD',
         price: '1000.00',
-        order_id: 'abcde',
+        order_id: 'babcdef',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'buy',
+        product_id: 'BTC-USD',
+        price: '500.00',
+        order_id: 'babcdefg',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'buy',
+        product_id: 'BTC-USD',
+        price: '999.00',
+        order_id: 'babcdefgh',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'buy',
+        product_id: 'BTC-USD',
+        price: '2000.00',
+        order_id: 'babcdefghi',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'sell',
+        product_id: 'BTC-USD',
+        price: '3000.00',
+        order_id: 'sabcd',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'sell',
+        product_id: 'BTC-USD',
+        price: '2000.00',
+        order_id: 'sabcde',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'sell',
+        product_id: 'BTC-USD',
+        price: '1000.00',
+        order_id: 'sabcdef',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'sell',
+        product_id: 'BTC-USD',
+        price: '500.00',
+        order_id: 'sabcdefg',
+        size: "0.75"
+    },
+    {
+        type: 'open',
+        side: 'sell',
+        product_id: 'BTC-USD',
+        price: '2000.00',
+        order_id: 'sabcdefgh',
         size: "0.75"
     }
 ];
@@ -26,7 +90,7 @@ const changes = [
         side: 'buy',
         product_id: 'BTC-USD',
         price: '1000.00',
-        order_id: 'abcde',
+        order_id: 'babcdef',
         new_size: '0.50'
     }
 ]
@@ -89,10 +153,35 @@ describe('Order Matches', () => {
 describe('Inside Levels', () => {
     const book = new OrderBook();
 
+    // TODO
+    /*
+        - fire this up legit
+        - let it run for 10 seconds 
+        - do the ask/bid comparison
+    */
+
+    opens.forEach((m) => {
+        book.messageHandlers.open(m);
+    });
+
     // TODO - add bids and asks, and confirm the lowest ask is never less than or equal the highest bid
+    book.printTickInfo();
+
+    let lowAsk = Number.MAX_SAFE_INTEGER;
+    book.bestAsks.forEach((a) => {
+        if (a.price < lowAsk) lowAsk = a.price;
+    });
+
+    let highBid = 0;
+    book.bestBids.forEach((b) => {
+        if (b.price > highBid) highBid = b.price;
+    });
 
     it('lowest ask is never <= to highest bid', () => {
-
+        console.log(`low ask: ${lowAsk}, high bid: ${highBid}`);
+        if (lowAsk <= highBid) {
+            assert.fail('ask was higher than bid');
+        }
     });
 })
 
