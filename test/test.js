@@ -178,12 +178,11 @@ describe('Inside Levels', () => {
     });
 
     it('lowest ask is never <= to highest bid', () => {
-        console.log(`low ask: ${lowAsk}, high bid: ${highBid}`);
-        if (lowAsk <= highBid) {
-            assert.fail('ask was higher than bid');
-        }
+        
     });
 })
+
+// TODO - make sure duplicate orders arent getting added to bestBid/bestAsk
 
 
 console.log('Running Tests');

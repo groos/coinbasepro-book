@@ -7,7 +7,7 @@ const utils = {
         return m.type === 'open' || m.type === 'done' || m.type === 'change' || m.type === 'match'
     },
     sortAndTake5Best: (orders, isAsending) => {
-        const sorted = orders.sort((a, b) => {
+        let sorted = orders.sort((a, b) => {
             if (isAsending) return Number(a.price) - Number(b.price);
             return Number(b.price) - Number(a.price);
         });
