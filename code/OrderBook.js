@@ -36,32 +36,54 @@ class OrderBook {
                ] 
            }
             */
-           
-           json.bids.forEach((bid) => {
-               const orderId = bid[2];
-               this.orders[orderId] = {
-                   type: 'open',
-                   side: 'buy',
-                   order_id: orderId,
-                   price: bid[0],
-                   size: bid[1]
-               };
-           });
 
-           json.asks.forEach((bid) => {
-               const orderId = bid[2];
-               this.orders[orderId] = {
-                   type: 'open',
-                   side: 'sell',
-                   order_id: orderId,
-                   price: bid[0],
-                   size: bid[1]
-               };
-           });
+            json.bids.forEach((bid) => {
+                const orderId = bid[2];
 
-           console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
-           console.log('Starting main message handler loop');
-           this.processMessagesLoop();
+                const order = {
+                    type: 'open',
+                    side: 'buy',
+                    order_id: orderId,
+                    price: bid[0],
+                    size: bid[1]
+                };
+
+                // if this bid is higher than the highest bid, push it to the best bids list
+                if (this.bestBids.length === 0 || this.bestBids.length < 5 || order.price > this.bestBids[0].price) {
+                    this.bestBids.push(order);
+                }
+
+                this.orders[orderId] = order;
+            });
+
+            this.bestBids = util.sortAndTake5Best(this.bestBids, false);
+            console.log(`best bids: ${JSON.stringify(this.bestBids)}`);
+
+            json.asks.forEach((bid) => {
+                const orderId = bid[2];
+
+                const order = {
+                    type: 'open',
+                    side: 'sell',
+                    order_id: orderId,
+                    price: bid[0],
+                    size: bid[1]
+                };
+
+                // if this ask is less than the lowest ask, push it to the best asks list
+                if (this.bestAsks.length === 0 || this.bestAsks.length < 5 || order.price < this.bestAsks[0].price) {
+                    this.bestAsks.push(order);
+                }
+
+                this.orders[orderId] = order;
+            });
+
+            this.bestAsks = util.sortAndTake5Best(this.bestAsks, true);
+            console.log(`best asks: ${JSON.stringify(this.bestAsks)}`);
+
+            console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
+            console.log('Starting main message handler loop');
+            this.processMessagesLoop();
         });
     }
 
