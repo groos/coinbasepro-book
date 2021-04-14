@@ -1,4 +1,7 @@
 const fetch = require('node-fetch');
+const util = require('./util');
+
+const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
     constructor() {
@@ -15,8 +18,7 @@ class OrderBook {
     }
 
     initialize() {
-        console.log('calling get cb snapshot')
-        fetch('https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3')
+        fetch(cbBookUrl)
         .then(res => res.json())
         .then((json) => {
             // Response looks like: [ price, size, order_id ]
@@ -57,19 +59,13 @@ class OrderBook {
                };
            });
 
-           console.log(`bids: ${json.bids.length}`);
-           console.log(`asks: ${json.asks.length}`);
-           console.log(`total orders: ${Object.keys(this.orders).length}`);
-
+           console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
+           console.log('Starting main message handler loop');
            this.processMessagesLoop();
         });
     }
 
     processMessagesLoop() {
-        //console.log(`Processing Messages: ${this.messages.length}`);
-
-        //console.log(JSON.stringify(this.messages));
-
         const messageCopy = this.messages;
 
         for (let i = 0; i < messageCopy.length; i++) {
@@ -77,13 +73,11 @@ class OrderBook {
             const handler = this.messageHandlers[m.type];
 
             if (handler) {
-                this.logOrderCount();
+                console.log(`Open Orders: ${Object.keys(this.orders).length}`);
                 handler(m);
-                this.logOrderCount();
+                console.log(`Open Orders: ${Object.keys(this.orders).length}`);
 
                 this.processedMessages.push(m);
-
-                // remove message from this.messages
                 this.messages.splice(i, 1);
             }
         }
@@ -93,21 +87,12 @@ class OrderBook {
         }
     }
 
-    logMessage(message, optionalText) {
-        optionalText = optionalText ? optionalText : '';
-        //console.log(`${optionalText} ${message.type}: ${JSON.stringify(message)}`);
-    }
-
-    logOrderCount() {
-        console.log(`Open Orders: ${Object.keys(this.orders).length}`);
-    }
-
     messageHandlers = {
         open: (message) => {
             // {"type":"open","side":"buy","product_id":"BTC-USD","time":"2021-04-14T13:35:17.300223Z","sequence":309764206,"price":"64178.18","order_id":"8f25bab1-5176-46c5-b276-07403543d6de","remaining_size":"0.8764"}
             this.orders[message.order_id] = message;
 
-            this.logMessage(message, 'Added Order');
+            util.logMessage(message, 'Added Order');
         },
         done: (message) => {
             //{"type":"done","side":"sell","product_id":"BTC-USD","time":"2021-04-14T13:35:16.760150Z","sequence":309764200,"order_id":"6725d097-07c4-4ab9-bc5d-243ef8059f41","reason":"filled","price":"64192.1","remaining_size":"0"} 
@@ -116,7 +101,7 @@ class OrderBook {
         change: (message) => {
             // change - an existing order needs to be changed
             
-            console.log(``)
+            console.log(`In Change Handler`)
         },
         match: (message) => {
             //{"type":"match","side":"buy","product_id":"BTC-USD","time":"2021-04-14T13:35:16.760150Z","sequence":309764199,"trade_id":27775238,"maker_order_id":"f433fcd7-4fcc-41f0-adf3-fe65b1afbb5b","taker_order_id":"6725d097-07c4-4ab9-bc5d-243ef8059f41","size":"0.0256","price":"64235.13"}
@@ -128,12 +113,8 @@ class OrderBook {
     }
 
     queueMessage(message) {
-        const shouldQueue = (m) => {
-            return m.type === 'open' || m.type === 'done' || m.type === 'change' || m.type === 'match'
-        }
-
-        if (shouldQueue(message)) {
-            this.logMessage(message, 'queuing message type');
+        if (util.shouldQueueMessage(message)) {
+            util.logMessage(message, 'queuing message type');
             this.messages.push(message);
             console.log(`total messages queued: ${Object.keys(this.messages).length}`);
         }
