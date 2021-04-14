@@ -162,6 +162,8 @@ class OrderBook {
 
                 this.orders[message.order_id] = order;
 
+
+                // Update best bid/ask lists - could refactor this out to func later
                 const bids = this.bestBids.reduce((total, bid) => {
                     if (bid.order_id === order.order_id) bid.size = order.size;
 
@@ -174,7 +176,7 @@ class OrderBook {
                 const asks = this.bestAsks.reduce((total, ask) => {
                     if (ask.order_id === order.order_id) ask.size = order.size;
 
-                    total.push(bid);
+                    total.push(ask);
                     return total;
                 }, []);
 
