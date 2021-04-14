@@ -17,6 +17,14 @@ class OrderBook {
         this.run = true;
     }
 
+    shouldAddBestBid = (price) => {
+        return this.bestBids.length === 0 || this.bestBids.length < 5 || price > this.bestBids[0].price
+    }
+
+    shouldAddBestAsk = (price) => {
+        return this.bestAsks.length === 0 || this.bestAsks.length < 5 || price < this.bestAsks[0].price
+    }
+
     initialize() {
         fetch(cbBookUrl)
         .then(res => res.json())
@@ -37,6 +45,28 @@ class OrderBook {
            }
             */
 
+        json.asks.forEach((bid) => {
+            const orderId = bid[2];
+
+            const order = {
+                type: 'open',
+                side: 'sell',
+                order_id: orderId,
+                price: bid[0],
+                size: bid[1]
+            };
+
+            // if this ask is less than the lowest ask, push it to the best asks list
+            if (this.shouldAddBestAsk(order.price)) {
+                this.bestAsks.push(order);
+            }
+
+            this.orders[orderId] = order;
+        });
+
+        this.bestAsks = util.sortAndTake5Best(this.bestAsks, true);
+        console.log(`best asks: ${JSON.stringify(this.bestAsks)}`);
+
             json.bids.forEach((bid) => {
                 const orderId = bid[2];
 
@@ -49,7 +79,7 @@ class OrderBook {
                 };
 
                 // if this bid is higher than the highest bid, push it to the best bids list
-                if (this.bestBids.length === 0 || this.bestBids.length < 5 || order.price > this.bestBids[0].price) {
+                if (this.shouldAddBestBid(order.price)) {
                     this.bestBids.push(order);
                 }
 
@@ -58,28 +88,6 @@ class OrderBook {
 
             this.bestBids = util.sortAndTake5Best(this.bestBids, false);
             console.log(`best bids: ${JSON.stringify(this.bestBids)}`);
-
-            json.asks.forEach((bid) => {
-                const orderId = bid[2];
-
-                const order = {
-                    type: 'open',
-                    side: 'sell',
-                    order_id: orderId,
-                    price: bid[0],
-                    size: bid[1]
-                };
-
-                // if this ask is less than the lowest ask, push it to the best asks list
-                if (this.bestAsks.length === 0 || this.bestAsks.length < 5 || order.price < this.bestAsks[0].price) {
-                    this.bestAsks.push(order);
-                }
-
-                this.orders[orderId] = order;
-            });
-
-            this.bestAsks = util.sortAndTake5Best(this.bestAsks, true);
-            console.log(`best asks: ${JSON.stringify(this.bestAsks)}`);
 
             console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
             console.log('Starting main message handler loop');
@@ -114,11 +122,22 @@ class OrderBook {
             // {"type":"open","side":"buy","product_id":"BTC-USD","time":"2021-04-14T13:35:17.300223Z","sequence":309764206,"price":"64178.18","order_id":"8f25bab1-5176-46c5-b276-07403543d6de","remaining_size":"0.8764"}
             this.orders[message.order_id] = message;
 
+            if (message.side === 'buy') this.bestBids.push(message);
+            if (message.side === 'sell') this.bestAsks.push(message);
+
             util.logMessage(message, 'Added Order');
         },
         done: (message) => {
             //{"type":"done","side":"sell","product_id":"BTC-USD","time":"2021-04-14T13:35:16.760150Z","sequence":309764200,"order_id":"6725d097-07c4-4ab9-bc5d-243ef8059f41","reason":"filled","price":"64192.1","remaining_size":"0"} 
             delete this.orders[message.order_id];
+            
+            this.bestBids = this.bestBids.filter((bid) => {
+                return bid.order_id !== message.order_id;
+            });
+
+            this.bestAsks = this.bestAsks.filter((bid) => {
+                return bid.order_id !== message.order_id;
+            });
         },
         change: (message) => {
             // change - an existing order needs to be changed
