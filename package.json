@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -19,5 +19,8 @@
   "dependencies": {
     "node-fetch": "^2.6.1",
     "ws": "^7.4.4"
+  },
+  "devDependencies": {
+    "mocha": "^8.3.2"
   }
 }
