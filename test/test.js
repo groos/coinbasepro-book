@@ -1,13 +1,9 @@
+const { doesNotMatch } = require('assert');
 const assert = require('assert');
+const app = require('../code/app');
 const { OrderBook } = require('../code/OrderBook');
 
-describe('Array', () => {
-    describe('#indexOf()', () => {
-        it('should return -1 when the value is not present', () => {
-            assert.equal([1, 2, 3].indexOf(4), -1);
-        });
-    });
-});
+
 
 const opens = [
     {
@@ -108,9 +104,9 @@ const dones = [
     }
 ];
 
-describe('Add/Remove Book Orders', () => {
-    describe('#Add Order Count', () => {
-        it('order count increases when we add an order', () => {
+describe('Add/Remove Book Orders', function() {
+    describe('#Add Order Count', function () {
+        it('order count increases when we add an order', function () {
             const book = new OrderBook();
 
             opens.forEach((m) => {
@@ -118,9 +114,42 @@ describe('Add/Remove Book Orders', () => {
             });
 
             assert.strictEqual(book.messages.length, opens.length);
-        })
+        });
     });
 });
+
+describe('Order Matches', () => {
+    const book = new OrderBook();
+});
+
+describe('Inside Levels', function() {
+    // const levelsCrossed = (crossed) => {
+    //     console.log('in levels crossed callback')
+    //     it('lowest ask is never <= to highest bid', () => {
+    //         console.log('in assertion');
+    //         assert.strictEqual(crossed, false);
+    //     });
+    // };
+
+    it('lowest ask is never <= to highest bid', function(done) {
+        this.timeout(15000);
+        console.log('donezzo' + ': ' + JSON.stringify(done));
+        app.startTest(done);
+
+        // console.log(`got crossedLevels: ${crossedLevels}`);
+        // assert.strictEqual(crossedLevels, false);
+        // done();
+
+        // app.startTest2(done).then(function(crossedLevels) {
+        //     console.log(`got crossedLevels: ${crossedLevels}`);
+        //     assert.strictEqual(crossedLevels, false);
+        // });
+
+        // console.log(`got crossedLevels: ${crossedLevels}`);
+        // assert.strictEqual(crossedLevels, false);
+        // done();
+    });
+})
 
 describe('Order Changes', () => {
     const book = new OrderBook();
@@ -145,42 +174,6 @@ describe('Order Changes', () => {
         assert.strictEqual(o[0].size, '0.50');
     })
 });
-
-describe('Order Matches', () => {
-    const book = new OrderBook();
-});
-
-describe('Inside Levels', () => {
-    const book = new OrderBook();
-
-    // TODO
-    /*
-        - fire this up legit
-        - let it run for 10 seconds 
-        - do the ask/bid comparison
-    */
-
-    opens.forEach((m) => {
-        book.messageHandlers.open(m);
-    });
-
-    // TODO - add bids and asks, and confirm the lowest ask is never less than or equal the highest bid
-    book.printTickInfo();
-
-    let lowAsk = Number.MAX_SAFE_INTEGER;
-    book.bestAsks.forEach((a) => {
-        if (a.price < lowAsk) lowAsk = a.price;
-    });
-
-    let highBid = 0;
-    book.bestBids.forEach((b) => {
-        if (b.price > highBid) highBid = b.price;
-    });
-
-    it('lowest ask is never <= to highest bid', () => {
-        
-    });
-})
 
 // TODO - make sure duplicate orders arent getting added to bestBid/bestAsk
 

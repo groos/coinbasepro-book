@@ -4,8 +4,9 @@ const util = require('./util');
 const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
-    constructor() {
-        console.log('in order book constructor');
+    constructor(isTest) {
+        this.isTest = isTest;
+        this.bookCrossed = false;
         
         this.messages = [];
         this.processedMessages = [];
@@ -96,6 +97,13 @@ class OrderBook {
             }
         }
 
+        if (this.isTest) {
+            // verify the book is not crossed
+            // if it is, call this.reportTestResults(true)
+            //this.bookCrossed = true;
+        }
+        
+
         if (this.run) {
             setImmediate(this.processMessagesLoop.bind(this));
         }
@@ -106,10 +114,7 @@ class OrderBook {
             // {"type":"open","side":"buy","product_id":"BTC-USD","time":"2021-04-14T13:35:17.300223Z","sequence":309764206,"price":"64178.18","order_id":"8f25bab1-5176-46c5-b276-07403543d6de","remaining_size":"0.8764"}
             this.orders[message.order_id] = message;
 
-            console.log('adding order' + ': ' + JSON.stringify(message));
-
-            if (message.side === 'buy') this.bestBids.push(message);
-            if (message.side === 'sell') this.bestAsks.push(message);
+            //console.log('adding order' + ': ' + JSON.stringify(message));
 
             util.logMessage(message, 'Added Order');
         },
@@ -152,19 +157,26 @@ class OrderBook {
 
             // maker_order_id is an order i have on the book
 
-            const makerOrder = this.orders[message.maker_order_id];
+            let makerOrder = this.orders[message.maker_order_id];
             if (makerOrder) {
-                console.log(`found maker match: ${makerOrder.size}`);
+
+                //console.log(`found maker match: ${JSON.stringify(makerOrder)}`);
+                //console.log(`match message: ${JSON.stringify(message)}`)
+                // subtract message.size from makerOrder.remaining_size or makerOrder.size
+
+                const bookOrderSize = makerOrder.remaining_size ? makerOrder.remaining_size : makerOrder.size;
+                const remainingSize = Number(bookOrderSize) - Number(message.size);
+
+
+                console.log(`Updating order subtracting size of ${message.size}: ${bookOrderSize} --> ${remainingSize}`);
+
+                makerOrder.remaining_size = `${remainingSize}`;
+                this.orders[makerOrder.order_id];
             } else {
                 console.log('did not find maker match')
             }
 
-            const takerOrder = this.orders[message.taker_order_id];
-            if (takerOrder){
-                console.log('got a taker order too');
-            }
-
-            console.log(`match: ${JSON.stringify(message)}`);
+            //console.log(`match: ${JSON.stringify(message)}`);
             this.printTickInfo();
         }
     }
@@ -180,18 +192,13 @@ class OrderBook {
     printTickInfo() {
         const ordersArray = Object.keys(this.orders).map(k => this.orders[k]);
 
-        const bidsFalse = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
-        const bidsTrue = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), true);
-
-        console.log('bids false' + ': ' + JSON.stringify(bidsFalse));
-        console.log('bids true' + ': ' + JSON.stringify(bidsTrue));
-
+        // In a real implementation, we would manage this list continuously rather than have to resort it on every tick
         this.bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
         this.bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
 
         console.log('');
         this.bestAsks.reverse().forEach((ask) => {
-            const size = ask.size ? ask.size : ask.remaining_size;
+            const size = ask.remaining_size ? ask.remaining_size : ask.size;
             //console.log('ask' + ': ' + JSON.stringify(ask));
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
         });
@@ -199,7 +206,7 @@ class OrderBook {
         console.log(`---------------------`);
 
         this.bestBids.forEach((bid) => {
-            const size = bid.size ? bid.size : bid.remaining_size;
+            const size = bid.remaining_size ? bid.remaining_size : bid.size;
             //console.log('bid' + ': ' + JSON.stringify(bid));
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
         });
