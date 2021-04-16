@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 const util = require('./util');
+const _ = require('lodash');
 
 const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
 
@@ -30,31 +31,15 @@ class OrderBook {
         fetch(cbBookUrl)
         .then(res => res.json())
         .then((json) => {
-            // Response looks like: [ price, size, order_id ]
-            /*
-               { 
-                   bids: [ // bids = amount of money a buyer is willing to pay
-                       [ '62883.81', '4771', '2b6e645c-29c8-4333-81b0-042932296317' ],
-                       [ '62883.8', '6020', '1c75604c-274d-4474-9560-1c844393d84e' ],
-                       [ '62883.79', '6989', '467a8da8-15cd-4836-bece-1cbd9983d89a' ]
-               ], 
-               asks: [ // asks = amount of money a seller is willing to sell for
-                       [ '62883.85', '4771', '8fc58e9d-d3ed-49da-b686-77cca3bb04cd' ],
-                       [ '62883.86', '6020', '0f721713-e12b-43bb-a4b1-5e44a0135055' ],
-                       [ '62883.87', '6989', 'e4116e21-74b8-4381-986b-d699425e8441' ]
-               ] 
-           }
-            */
-
-        json.asks.forEach((bid) => {
-            const orderId = bid[2];
+        json.asks.forEach((ask) => {
+            const orderId = ask[2];
 
             const order = {
                 type: 'open',
                 side: 'sell',
                 order_id: orderId,
-                price: bid[0],
-                size: bid[1]
+                price: ask[0],
+                size: ask[1]
             };
 
             this.orders[orderId] = order;
@@ -83,39 +68,44 @@ class OrderBook {
     processMessagesLoop() {
         const messageCopy = this.messages;
 
-        for (let i = 0; i < messageCopy.length; i++) {
-            const m = messageCopy[i];
+        messageCopy.forEach((m, mx) => {
             const handler = this.messageHandlers[m.type];
 
             if (handler) {
-                //console.log(`Open Orders: ${Object.keys(this.orders).length}`);
                 handler(m);
-                //console.log(`Open Orders: ${Object.keys(this.orders).length}`);
 
                 this.processedMessages.push(m);
-                this.messages.splice(i, 1);
+                this.messages.splice(mx, 1);
             }
-        }
-
-        if (this.testDuration) {
-            // verify the book is not crossed
-            // if it is, call this.reportTestResults(true)
-            //this.bookCrossed = true;
-        }
-        
+        });  
 
         if (this.run) {
             setImmediate(this.processMessagesLoop.bind(this));
         }
     }
 
+    bookIsCrossed = () => {
+        const bids = Object.keys(this.orders).filter((k) => {
+            return this.orders[k].side === 'buy';
+        }).map((k) => this.orders[k]);
+
+        const asks = Object.keys(this.orders).filter((k) => {
+            return this.orders[k].side === 'sell';
+        }).map((k) => this.orders[k]);
+
+        const maxBid = _.maxBy(bids, (b) => Number(b.price));
+        const minAsk = _.minBy(asks, (a) => Number(a.price));
+
+        console.log('max bid' + ': ' + JSON.stringify(maxBid));
+        console.log('min ask' + ': ' + JSON.stringify(minAsk));
+
+        return maxBid.price > minAsk.price;
+    }
+
     messageHandlers = {
         open: (message) => {
             // {"type":"open","side":"buy","product_id":"BTC-USD","time":"2021-04-14T13:35:17.300223Z","sequence":309764206,"price":"64178.18","order_id":"8f25bab1-5176-46c5-b276-07403543d6de","remaining_size":"0.8764"}
             this.orders[message.order_id] = message;
-
-            //console.log('adding order' + ': ' + JSON.stringify(message));
-
             util.logMessage(message, 'Added Order');
         },
         done: (message) => {
@@ -159,33 +149,20 @@ class OrderBook {
 
             let makerOrder = this.orders[message.maker_order_id];
             if (makerOrder) {
-
-                //console.log(`found maker match: ${JSON.stringify(makerOrder)}`);
-                //console.log(`match message: ${JSON.stringify(message)}`)
-                // subtract message.size from makerOrder.remaining_size or makerOrder.size
-
                 const bookOrderSize = makerOrder.remaining_size ? makerOrder.remaining_size : makerOrder.size;
                 const remainingSize = Number(bookOrderSize) - Number(message.size);
 
-
-                console.log(`Updating order subtracting size of ${message.size}: ${bookOrderSize} --> ${remainingSize}`);
-
                 makerOrder.remaining_size = `${remainingSize}`;
                 this.orders[makerOrder.order_id];
-            } else {
-                console.log('did not find maker match')
             }
 
-            //console.log(`match: ${JSON.stringify(message)}`);
             this.printTickInfo();
         }
     }
 
     queueMessage(message) {
         if (util.shouldQueueMessage(message)) {
-            //util.logMessage(message, 'queuing message type');
             this.messages.push(message);
-            //console.log(`total messages queued: ${Object.keys(this.messages).length}`);
         }
     }
 
@@ -199,7 +176,6 @@ class OrderBook {
         console.log('');
         this.bestAsks.reverse().forEach((ask) => {
             const size = ask.remaining_size ? ask.remaining_size : ask.size;
-            //console.log('ask' + ': ' + JSON.stringify(ask));
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
         });
 
@@ -207,7 +183,6 @@ class OrderBook {
 
         this.bestBids.forEach((bid) => {
             const size = bid.remaining_size ? bid.remaining_size : bid.size;
-            //console.log('bid' + ': ' + JSON.stringify(bid));
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
         });
         console.log('');

@@ -3,8 +3,6 @@ const assert = require('assert');
 const app = require('../code/app');
 const { OrderBook } = require('../code/OrderBook');
 
-
-
 const opens = [
     {
         type: 'open',
@@ -118,19 +116,11 @@ describe('Add/Remove Book Orders', function() {
     });
 });
 
-describe('Order Matches', () => {
+describe('Order Matches', function() {
     const book = new OrderBook();
 });
 
-describe('Inside Levels', function() {
-    it('lowest ask is never <= to highest bid', function(done) {
-        const testDuration = 10000;
-        this.timeout(testDuration + 2000);
-        app.startTest(testDuration, done);
-    });
-})
-
-describe('Order Changes', () => {
+describe('Order Changes', function() {
     const book = new OrderBook();
 
     opens.forEach((m) => {
@@ -147,14 +137,14 @@ describe('Order Changes', () => {
     it('first order size should have changed to 0.5', () => {
         assert.strictEqual(firstOrder.size, '0.50');
     });
-
-    it('bid order should be updated also', () => {
-        const o = book.bestBids.filter((b) => b.order_id === firstOrderId);
-        assert.strictEqual(o[0].size, '0.50');
-    })
 });
 
-// TODO - make sure duplicate orders arent getting added to bestBid/bestAsk
-
+describe('Inside Levels', function() {
+    it('lowest ask is never <= to highest bid', function(done) {
+        const testDuration = 10000;
+        this.timeout(testDuration + 2000); // mocha times out tests after 2000ms by default
+        app.startTest(testDuration, done);
+    });
+});
 
 console.log('Running Tests');

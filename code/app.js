@@ -31,11 +31,12 @@ const run = async function(testDuration) {
         process.exit();
     });
 
-    // if it's a test run, close the socket after 10 secconds
+    // if it's a test run, close the socket after X secconds
     if (testDuration) {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
-                resolve(book.bookCrossed);
+                const bookIsValid = !book.bookIsCrossed();
+                resolve(bookIsValid);
                 wsClient.close();
             }, testDuration)
         })
@@ -47,7 +48,7 @@ module.exports = {
         run();
     },
     startTest: (testDuration, done) => {
-        return new Promise(async function(resolve, reject) {
+        return new Promise(async (resolve, reject) => {
             const passed = await run(testDuration);
 
             if (passed) {
@@ -55,6 +56,6 @@ module.exports = {
             } else {
                 done(new Error('it failed!!'));
             }
-        }.bind(this));
+        });
     }
 }
