@@ -2,7 +2,8 @@ const fetch = require('node-fetch');
 const util = require('./util');
 const _ = require('lodash');
 
-const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
+//const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
+const cbBookUrl = 'https://api.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
     constructor(testDuration) {
@@ -29,46 +30,58 @@ class OrderBook {
 
     initialize() {
         fetch(cbBookUrl)
-        .then(res => res.json())
-        .then((json) => {
-        json.asks.forEach((ask) => {
-            const orderId = ask[2];
+            .then(res => res.json())
+            .then((json) => {
+                this.sequence = json.sequence;
+                console.log('sequence is' + ': ' + JSON.stringify(this.sequence));
 
-            const order = {
-                type: 'open',
-                side: 'sell',
-                order_id: orderId,
-                price: ask[0],
-                size: ask[1]
-            };
+                json.asks.forEach((ask) => {
+                    const orderId = ask[2];
 
-            this.orders[orderId] = order;
-        });
+                    const order = {
+                        type: 'open',
+                        side: 'sell',
+                        order_id: orderId,
+                        price: ask[0],
+                        size: ask[1]
+                    };
 
-        json.bids.forEach((bid) => {
-                const orderId = bid[2];
+                    this.orders[orderId] = order;
+                });
 
-                const order = {
-                    type: 'open',
-                    side: 'buy',
-                    order_id: orderId,
-                    price: bid[0],
-                    size: bid[1]
-                };
+                json.bids.forEach((bid) => {
+                    const orderId = bid[2];
 
-                this.orders[orderId] = order;
+                    const order = {
+                        type: 'open',
+                        side: 'buy',
+                        order_id: orderId,
+                        price: bid[0],
+                        size: bid[1]
+                    };
+
+                    this.orders[orderId] = order;
+                });
+
+                console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
+                console.log('Starting main message handler loop');
+
+                this.processMessagesLoop();
             });
 
-            console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
-            console.log('Starting main message handler loop');
-            this.processMessagesLoop();
-        });
     }
 
     processMessagesLoop() {
         const messageCopy = this.messages;
 
         messageCopy.forEach((m, mx) => {
+            console.log(`----Processing message with seq: ${m.sequence} . this.sequence is ${this.sequence}`)
+            if (m.sequence <= this.sequence) {
+                console.log('discarding message' + ': ' + JSON.stringify(m));
+                this.messages.splice(mx, 1);
+                return;
+            }
+
             const handler = this.messageHandlers[m.type];
 
             if (handler) {
@@ -99,6 +112,8 @@ class OrderBook {
         console.log('max bid' + ': ' + JSON.stringify(maxBid));
         console.log('min ask' + ': ' + JSON.stringify(minAsk));
 
+        console.log('sequence is' + ': ' + JSON.stringify(this.sequence));
+
         return maxBid.price > minAsk.price;
     }
 
@@ -110,7 +125,11 @@ class OrderBook {
         },
         done: (message) => {
             //{"type":"done","side":"sell","product_id":"BTC-USD","time":"2021-04-14T13:35:16.760150Z","sequence":309764200,"order_id":"6725d097-07c4-4ab9-bc5d-243ef8059f41","reason":"filled","price":"64192.1","remaining_size":"0"} 
-            delete this.orders[message.order_id];
+
+            if (this.orders[message.order_id]) {
+                delete this.orders[message.order_id];
+            }
+            
         },
         change: (message) => {
             // change - an existing order needs to be changed
@@ -150,19 +169,34 @@ class OrderBook {
             let makerOrder = this.orders[message.maker_order_id];
             if (makerOrder) {
                 const bookOrderSize = makerOrder.remaining_size ? makerOrder.remaining_size : makerOrder.size;
+                
                 const remainingSize = Number(bookOrderSize) - Number(message.size);
+
+                if (remainingSize == 0) {
+                    //console.log('deleting' + ': ' + JSON.stringify(this.orders[makerOrder.order_id]));
+                    // I dont think i need to handle this delete, because it will come in as a 'done' message 
+                    //delete this.orders[makerOrder.order_id];
+                    return;
+                }
 
                 makerOrder.remaining_size = `${remainingSize}`;
                 this.orders[makerOrder.order_id];
             }
 
-            this.printTickInfo();
+            //this.printTickInfo();
         }
     }
 
     queueMessage(message) {
+        console.log(`sequence: ${this.sequence} messageSeq: ${message.sequence}`);
+
+        if (this.sequence && message.sequence < this.sequence) {
+            console.log('should discard message' + ': ' + JSON.stringify(message));
+        }
         if (util.shouldQueueMessage(message)) {
             this.messages.push(message);
+        } else {
+            //console.log('ignoring message' + ': ' + JSON.stringify(message));
         }
     }
 

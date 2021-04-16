@@ -2,7 +2,8 @@ const { OrderBook } = require('./OrderBook');
 const WebSocket = require('ws');
 const util = require('./util');
 
-const cbWebsocketUrl = 'wss://ws-feed-public.sandbox.pro.coinbase.com';
+//const cbWebsocketUrl = 'wss://ws-feed-public.sandbox.pro.coinbase.com';
+const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const run = async function(testDuration) {
     const book = new OrderBook(testDuration);
@@ -10,7 +11,6 @@ const run = async function(testDuration) {
 
     wsClient.on('message', (msg) => {
         const parsedMessage = JSON.parse(msg);
-
         util.logMessage(parsedMessage, 'Received Message');
         book.queueMessage(parsedMessage);
     });
@@ -54,7 +54,7 @@ module.exports = {
             if (passed) {
                 done();
             } else {
-                done(new Error('it failed!!'));
+                done(new Error('High Bid was greater than or equal to Low Ask'));
             }
         });
     }
