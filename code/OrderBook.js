@@ -4,8 +4,8 @@ const util = require('./util');
 const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
-    constructor(isTest) {
-        this.isTest = isTest;
+    constructor(testDuration) {
+        this.testDuration = testDuration;
         this.bookCrossed = false;
         
         this.messages = [];
@@ -97,7 +97,7 @@ class OrderBook {
             }
         }
 
-        if (this.isTest) {
+        if (this.testDuration) {
             // verify the book is not crossed
             // if it is, call this.reportTestResults(true)
             //this.bookCrossed = true;

@@ -123,31 +123,10 @@ describe('Order Matches', () => {
 });
 
 describe('Inside Levels', function() {
-    // const levelsCrossed = (crossed) => {
-    //     console.log('in levels crossed callback')
-    //     it('lowest ask is never <= to highest bid', () => {
-    //         console.log('in assertion');
-    //         assert.strictEqual(crossed, false);
-    //     });
-    // };
-
     it('lowest ask is never <= to highest bid', function(done) {
-        this.timeout(15000);
-        console.log('donezzo' + ': ' + JSON.stringify(done));
-        app.startTest(done);
-
-        // console.log(`got crossedLevels: ${crossedLevels}`);
-        // assert.strictEqual(crossedLevels, false);
-        // done();
-
-        // app.startTest2(done).then(function(crossedLevels) {
-        //     console.log(`got crossedLevels: ${crossedLevels}`);
-        //     assert.strictEqual(crossedLevels, false);
-        // });
-
-        // console.log(`got crossedLevels: ${crossedLevels}`);
-        // assert.strictEqual(crossedLevels, false);
-        // done();
+        const testDuration = 10000;
+        this.timeout(testDuration + 2000);
+        app.startTest(testDuration, done);
     });
 })
 
