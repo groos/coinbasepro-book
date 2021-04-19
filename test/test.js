@@ -36,6 +36,8 @@ describe('Order Changes', function() {
     });
 });
 
+// delete one of the best offers
+
 describe('Inside Levels', function() {
     it('Lowest ask is never <= to highest bid', function(done) {
         const testDuration = 10000;

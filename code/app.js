@@ -10,7 +10,6 @@ const rl = readline.createInterface({
     output: process.stdout
   });
 
-//const cbWebsocketUrl = 'wss://ws-feed-public.sandbox.pro.coinbase.com';
 const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const run = async function(testDuration) {

@@ -15,7 +15,20 @@ class OrderBook {
         this.messages = [];
         this.orders = {};
 
+        this.bestBid = {};
+        this.bestAsk = {};
+
         this.run = true;
+    }
+
+    updateBestOrders(order) {
+        if (order.side === 'buy' && Number(order.price) > Number(this.bestBid.price)) {
+            this.bestBid = order;
+        }
+
+        if (order.side === 'sell' && Number(order.price) < Number(this.bestAsk.price)) {
+            this.bestAsk = order;
+        }
     }
 
     initialize() {
@@ -23,32 +36,38 @@ class OrderBook {
             .then(res => res.json())
             .then((json) => {
                 this.sequence = json.sequence;
-                console.log(`Starting sequence is: ${this.sequence}`)
+                console.log(`Starting sequence is: ${this.sequence}`);
+
+                const orderFromSnapshot = (snap, type, orderId) => {
+                    return {
+                        type: 'open',
+                        side: type,
+                        order_id: orderId,
+                        price: snap[0],
+                        remaining_size: snap[1]
+                    };
+                }
+
+                this.bestAsk = orderFromSnapshot(json.asks[0], 'sell', json.bids[0][2]);
+                this.bestBid = orderFromSnapshot(json.bids[0], 'buy', json.bids[0][2]);
+
+                console.log('best ask' + ': ' + JSON.stringify(this.bestAsk));
+                console.log('best bid' + ': ' + JSON.stringify(this.bestBid));
 
                 json.asks.forEach((ask) => {
                     const orderId = ask[2];
+                    const order = orderFromSnapshot(ask, 'sell', orderId);
 
-                    const order = {
-                        type: 'open',
-                        side: 'sell',
-                        order_id: orderId,
-                        price: ask[0],
-                        remaining_size: ask[1]
-                    };
+                    this.updateBestOrders(order);
 
                     this.orders[orderId] = order;
                 });
 
                 json.bids.forEach((bid) => {
                     const orderId = bid[2];
+                    const order = orderFromSnapshot(bid, 'buy', orderId);
 
-                    const order = {
-                        type: 'open',
-                        side: 'buy',
-                        order_id: orderId,
-                        price: bid[0],
-                        remaining_size: bid[1]
-                    };
+                    this.updateBestOrders(order);
 
                     this.orders[orderId] = order;
                 });
@@ -86,16 +105,8 @@ class OrderBook {
     }
 
     bookIsCrossed = (logInfo) => {
-        const bids = Object.keys(this.orders).filter((k) => {
-            return this.orders[k].side === 'buy';
-        }).map((k) => this.orders[k]);
-
-        const asks = Object.keys(this.orders).filter((k) => {
-            return this.orders[k].side === 'sell';
-        }).map((k) => this.orders[k]);
-
-        const maxBid = _.maxBy(bids, (b) => Number(b.price));
-        const minAsk = _.minBy(asks, (a) => Number(a.price));
+        const maxBid = this.getMaxBid();
+        const minAsk = this.getMinAsk();
 
         if (logInfo && Number(maxBid.price) > Number(minAsk.price)) {
             console.log('max bid' + ': ' + JSON.stringify(maxBid));
@@ -108,10 +119,19 @@ class OrderBook {
     messageHandlers = {
         open: (message) => {
             this.orders[message.order_id] = message;
+            this.updateBestOrders(message);
         },
         done: (message) => {
             if (this.orders[message.order_id]) {
                 delete this.orders[message.order_id];
+            }
+
+            if (this.bestBid.order_id === message.order_id) {
+                this.bestBid = this.getMaxBid();
+            }
+
+            if (this.bestAsk.order_id === message.order_id) {
+                this.bestAsk = this.getMinAsk();
             }
         },
         change: (message) => {
@@ -131,11 +151,27 @@ class OrderBook {
                 const remainingSize = Number(bookOrderSize) - Number(message.size);
 
                 makerOrder.remaining_size = `${remainingSize}`;
-                this.orders[makerOrder.order_id];
+                this.orders[makerOrder.order_id] = makerOrder;
             }
 
             this.printTickInfo();
         }
+    }
+
+    getMaxBid() {
+        const bids = Object.keys(this.orders).filter((k) => {
+            return this.orders[k].side === 'buy';
+        }).map((k) => this.orders[k]);
+
+        return _.maxBy(bids, (b) => Number(b.price));
+    }
+
+    getMinAsk() {
+        const asks = Object.keys(this.orders).filter((k) => {
+            return this.orders[k].side === 'sell';
+        }).map((k) => this.orders[k]);
+
+        return  _.minBy(asks, (a) => Number(a.price));
     }
 
     queueMessage(message) {
@@ -156,13 +192,14 @@ class OrderBook {
             const size = ask.remaining_size ? ask.remaining_size : ask.size;
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
         });
-
+        console.log(`best ask: ${JSON.stringify(this.bestAsk)}`);
         console.log(`---------------------`);
 
         bestBids.forEach((bid) => {
             const size = bid.remaining_size ? bid.remaining_size : bid.size;
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
         });
+        console.log('best bid' + ': ' + JSON.stringify(this.bestBid));
         console.log('');
 
         if (this.bookIsCrossed()) {
