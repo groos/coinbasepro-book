@@ -43,7 +43,8 @@ class OrderBook {
                         side: 'sell',
                         order_id: orderId,
                         price: ask[0],
-                        size: ask[1]
+                        remaining_size: ask[1],
+                        nick: 'this is from nick'
                     };
 
                     this.orders[orderId] = order;
@@ -57,7 +58,8 @@ class OrderBook {
                         side: 'buy',
                         order_id: orderId,
                         price: bid[0],
-                        size: bid[1]
+                        remaining_size: bid[1],
+                        nick: 'this is from nick'
                     };
 
                     this.orders[orderId] = order;
@@ -72,10 +74,11 @@ class OrderBook {
     }
 
     processMessagesLoop() {
-        const messageCopy = this.messages;
+        const messageCopy = Array.from(this.messages);
+        let removeMsgIndexes = [];
 
         messageCopy.forEach((m, mx) => {
-            console.log(`----Processing message with seq: ${m.sequence} . this.sequence is ${this.sequence}`)
+            //console.log(`----Processing message with seq: ${m.sequence} . this.sequence is ${this.sequence}`)
             if (m.sequence <= this.sequence) {
                 console.log('discarding message' + ': ' + JSON.stringify(m));
                 this.messages.splice(mx, 1);
@@ -85,19 +88,35 @@ class OrderBook {
             const handler = this.messageHandlers[m.type];
 
             if (handler) {
+                //this.printTickInfo();
                 handler(m);
 
                 this.processedMessages.push(m);
-                this.messages.splice(mx, 1);
+                removeMsgIndexes.push(mx);
+
+                // console.log(`removing message at index: ${mx}`);
+                // console.log(`messages length: ${this.messages.length}`);
+                // this.messages.splice(mx, 1);
+                // console.log(`new messages length: ${this.messages.length}`);
             }
         });  
 
+        this.messages = [];
+
+        if (this.bookIsCrossed()) {
+            this.bookIsCrossed(true);
+            console.log(`BOOK IS CROSSED - EXITING`);
+            console.log('Message backlog' + ': ' + JSON.stringify(this.messages.length));
+            process.exit(1);
+        }
+
         if (this.run) {
+            //console.log('Setting process for next tick');
             setImmediate(this.processMessagesLoop.bind(this));
         }
     }
 
-    bookIsCrossed = () => {
+    bookIsCrossed = (logInfo) => {
         const bids = Object.keys(this.orders).filter((k) => {
             return this.orders[k].side === 'buy';
         }).map((k) => this.orders[k]);
@@ -106,30 +125,46 @@ class OrderBook {
             return this.orders[k].side === 'sell';
         }).map((k) => this.orders[k]);
 
-        const maxBid = _.maxBy(bids, (b) => Number(b.price));
-        const minAsk = _.minBy(asks, (a) => Number(a.price));
-
-        console.log('max bid' + ': ' + JSON.stringify(maxBid));
-        console.log('min ask' + ': ' + JSON.stringify(minAsk));
-
-        console.log('sequence is' + ': ' + JSON.stringify(this.sequence));
-
-        return maxBid.price > minAsk.price;
+        if (bids && bids.length && asks && asks.length ) {
+            const maxBid = _.maxBy(bids, (b) => Number(b.price));
+            const minAsk = _.minBy(asks, (a) => Number(a.price));
+    
+            if (logInfo) {
+                console.log('max bid' + ': ' + JSON.stringify(maxBid));
+                console.log('min ask' + ': ' + JSON.stringify(minAsk));
+            }
+    
+            return Number(maxBid.price) > Number(minAsk.price);
+        } else {
+            return false;
+        }
     }
 
     messageHandlers = {
         open: (message) => {
             // {"type":"open","side":"buy","product_id":"BTC-USD","time":"2021-04-14T13:35:17.300223Z","sequence":309764206,"price":"64178.18","order_id":"8f25bab1-5176-46c5-b276-07403543d6de","remaining_size":"0.8764"}
             this.orders[message.order_id] = message;
-            util.logMessage(message, 'Added Order');
+            //console.log(`opening order: ${JSON.stringify(message)}`);
+
+            // if (this.bookIsCrossed()) {
+            //     this.bookCrossed(true);
+            //     console.log(`BOOK IS CROSSED - EXITING`);
+            //     process.exit(1);
+            // }
         },
         done: (message) => {
             //{"type":"done","side":"sell","product_id":"BTC-USD","time":"2021-04-14T13:35:16.760150Z","sequence":309764200,"order_id":"6725d097-07c4-4ab9-bc5d-243ef8059f41","reason":"filled","price":"64192.1","remaining_size":"0"} 
 
             if (this.orders[message.order_id]) {
+                //console.log(`deleting order: ${JSON.stringify(message)}`);
                 delete this.orders[message.order_id];
             }
             
+            // if (this.bookIsCrossed()) {
+            //     this.bookCrossed(true);
+            //     console.log(`BOOK IS CROSSED - EXITING`);
+            //     process.exit(1);
+            // }
         },
         change: (message) => {
             // change - an existing order needs to be changed
@@ -183,16 +218,18 @@ class OrderBook {
                 this.orders[makerOrder.order_id];
             }
 
-            //this.printTickInfo();
+            console.log('Match message' + ': ' + JSON.stringify(message));
+            this.printTickInfo();
         }
     }
 
     queueMessage(message) {
-        console.log(`sequence: ${this.sequence} messageSeq: ${message.sequence}`);
+        //console.log(`sequence: ${this.sequence} messageSeq: ${message.sequence}`);
 
-        if (this.sequence && message.sequence < this.sequence) {
+        if (this.sequence && message.sequence <= this.sequence) {
             console.log('should discard message' + ': ' + JSON.stringify(message));
         }
+
         if (util.shouldQueueMessage(message)) {
             this.messages.push(message);
         } else {
@@ -210,16 +247,23 @@ class OrderBook {
         console.log('');
         this.bestAsks.reverse().forEach((ask) => {
             const size = ask.remaining_size ? ask.remaining_size : ask.size;
-            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
+            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)} || orderid: ${ask.order_id} , type: ${ask.side}`);
         });
 
         console.log(`---------------------`);
 
         this.bestBids.forEach((bid) => {
             const size = bid.remaining_size ? bid.remaining_size : bid.size;
-            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
+            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}  || orderid: ${bid.order_id} , type: ${bid.side}`);
         });
         console.log('');
+
+
+        //const crossed = this.bookIsCrossed();
+        //if (crossed) {
+            //console.log(`!!!!!!!!!! BOOK IS CROSSED !!!!!!!!!!!!!!!! exiting`);
+            //process.exit();
+        //}
 
         /*
             1.50000 @ 60858.43
