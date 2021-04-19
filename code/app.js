@@ -12,8 +12,6 @@ const rl = readline.createInterface({
 const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const run = async function(testDuration) {
-    let streamStarted = false;
-
     const wsClient = new WebSocket(cbWebsocketUrl);
     const book = new OrderBook(testDuration);
 
@@ -24,31 +22,29 @@ const run = async function(testDuration) {
             product_ids: ['BTC-USD'],
             channels: ['full']
         }));
+        
+        book.initialize();
     });
 
     wsClient.on('message', (msg) => {
         const parsedMessage = JSON.parse(msg);
-
-        if (!streamStarted && parsedMessage.type !== 'subscriptions') {
-            console.log('first message' + ': ' + JSON.stringify(parsedMessage));
-            book.initialize();
-            streamStarted = true;
-        }
-
-        //util.logMessage(parsedMessage, 'Received Message');
         book.queueMessage(parsedMessage);
     });
 
     wsClient.on('close', () => {
+        wsClient.terminate();
         console.log('Socket connection closed');
-        process.exit();
+        rl.close();
     });
 
     rl.on('SIGINT', () => {
-        console.log('in SIGINT');
         wsClient.close();
-        process.exit();
     });
+
+    rl.on('close', () => {
+        console.log('Exiting process');
+        process.exit(0);
+    })
 
     // if it's a test run, close the socket after X secconds
     if (testDuration) {
@@ -56,7 +52,7 @@ const run = async function(testDuration) {
             setTimeout(() => {
                 const bookIsValid = !book.bookIsCrossed();
                 resolve(bookIsValid);
-                wsClient.close();
+                wsClient.terminate();
             }, testDuration)
         })
     }

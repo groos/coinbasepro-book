@@ -20,14 +20,6 @@ class OrderBook {
         this.run = true;
     }
 
-    shouldAddBestBid = (price) => {
-        return this.bestBids.length === 0 || this.bestBids.length < 5 || price > this.bestBids[0].price
-    }
-
-    shouldAddBestAsk = (price) => {
-        return this.bestAsks.length === 0 || this.bestAsks.length < 5 || price < this.bestAsks[0].price
-    }
-
     initialize() {
         fetch(cbBookUrl)
             .then(res => res.json())
@@ -241,29 +233,22 @@ class OrderBook {
         const ordersArray = Object.keys(this.orders).map(k => this.orders[k]);
 
         // In a real implementation, we would manage this list continuously rather than have to resort it on every tick
-        this.bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
-        this.bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
+        const bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
+        const bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
 
         console.log('');
-        this.bestAsks.reverse().forEach((ask) => {
+        bestAsks.reverse().forEach((ask) => {
             const size = ask.remaining_size ? ask.remaining_size : ask.size;
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)} || orderid: ${ask.order_id} , type: ${ask.side}`);
         });
 
         console.log(`---------------------`);
 
-        this.bestBids.forEach((bid) => {
+        bestBids.forEach((bid) => {
             const size = bid.remaining_size ? bid.remaining_size : bid.size;
             console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}  || orderid: ${bid.order_id} , type: ${bid.side}`);
         });
         console.log('');
-
-
-        //const crossed = this.bookIsCrossed();
-        //if (crossed) {
-            //console.log(`!!!!!!!!!! BOOK IS CROSSED !!!!!!!!!!!!!!!! exiting`);
-            //process.exit();
-        //}
 
         /*
             1.50000 @ 60858.43
