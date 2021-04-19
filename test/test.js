@@ -116,10 +116,6 @@ describe('Add/Remove Book Orders', function() {
     });
 });
 
-describe('Order Matches', function() {
-    const book = new OrderBook();
-});
-
 describe('Order Changes', function() {
     const book = new OrderBook();
 

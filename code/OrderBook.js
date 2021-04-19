@@ -56,14 +56,13 @@ class OrderBook {
 
                 this.processMessagesLoop();
             });
-
     }
 
     processMessagesLoop() {
         const messageCopy = Array.from(this.messages);
         messageCopy.forEach((m) => {
             if (m.sequence <= this.sequence) {
-                console.log('discarding message' + ': ' + JSON.stringify(m));
+                console.log('Discarding message' + ': ' + JSON.stringify(m));
                 return;
             }
 
@@ -75,13 +74,6 @@ class OrderBook {
         });  
 
         this.messages = [];
-
-        // if (this.bookIsCrossed()) {
-        //     this.bookIsCrossed(true);
-        //     console.log(`BOOK IS CROSSED - EXITING`);
-        //     console.log('Message backlog' + ': ' + JSON.stringify(this.messages.length));
-        //     process.exit(1);
-        // }
 
         if (this.run) {
             setImmediate(this.processMessagesLoop.bind(this));
@@ -171,11 +163,10 @@ class OrderBook {
         if (this.bookIsCrossed()) {
             this.bookIsCrossed(true);
             console.log(`BOOK IS CROSSED - EXITING`);
-            console.log('Message backlog' + ': ' + JSON.stringify(this.messages.length));
             this.abortConnection();
         }
 
-        /*
+        /* print format
             1.50000 @ 60858.43
             0.50000 @ 60858.27
             0.28740 @ 60857.64

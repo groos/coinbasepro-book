@@ -55,7 +55,7 @@ const run = async function(testDuration) {
         process.exit(0);
     })
 
-    // if it's a test run, close the socket after X secconds
+    // for mocha test, close the socket after X secconds
     if (testDuration) {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
