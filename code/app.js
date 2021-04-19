@@ -2,6 +2,7 @@ const { OrderBook } = require('./OrderBook');
 const readline = require('readline');
 const WebSocket = require('ws');
 const util = require('./util');
+const { first } = require('lodash');
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -13,7 +14,7 @@ const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const run = async function(testDuration) {
     const wsClient = new WebSocket(cbWebsocketUrl);
-    const book = new OrderBook(testDuration);
+    const book = new OrderBook( () => { wsClient.close() },testDuration);
 
     wsClient.on('open', () => {
         console.log('Subscribing to CB "full" channel');
@@ -21,9 +22,10 @@ const run = async function(testDuration) {
             type: 'subscribe',
             product_ids: ['BTC-USD'],
             channels: ['full']
-        }));
-        
-        book.initialize();
+        }), () => {
+            console.log('Initializing book');
+            book.initialize();
+        });
     });
 
     wsClient.on('message', (msg) => {
@@ -32,9 +34,16 @@ const run = async function(testDuration) {
     });
 
     wsClient.on('close', () => {
-        wsClient.terminate();
-        console.log('Socket connection closed');
-        rl.close();
+        wsClient.send(JSON.stringify({
+            type: 'unsubscribe',
+            product_ids: ['BTC-USD'],
+            channels: ['full']
+        }), () => {
+            console.log('Unsubscribed from channel');
+            wsClient.terminate();
+            console.log('Socket connection closed');
+            rl.close();
+        });
     });
 
     rl.on('SIGINT', () => {
@@ -52,7 +61,7 @@ const run = async function(testDuration) {
             setTimeout(() => {
                 const bookIsValid = !book.bookIsCrossed();
                 resolve(bookIsValid);
-                wsClient.terminate();
+                wsClient.close();
             }, testDuration)
         })
     }
