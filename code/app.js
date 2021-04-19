@@ -3,6 +3,7 @@ const readline = require('readline');
 const WebSocket = require('ws');
 const util = require('./util');
 const { first } = require('lodash');
+const { parse } = require('path');
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -14,7 +15,9 @@ const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const run = async function(testDuration) {
     const wsClient = new WebSocket(cbWebsocketUrl);
-    const book = new OrderBook( () => { wsClient.close() },testDuration);
+    const book = new OrderBook( () => { wsClient.close() }, testDuration);
+
+    let gotFirstMessage = false;
 
     wsClient.on('open', () => {
         console.log('Subscribing to CB "full" channel');
@@ -22,15 +25,22 @@ const run = async function(testDuration) {
             type: 'subscribe',
             product_ids: ['BTC-USD'],
             channels: ['full']
-        }), () => {
-            console.log('Initializing book');
-            book.initialize();
-        });
+        }));
     });
+
 
     wsClient.on('message', (msg) => {
         const parsedMessage = JSON.parse(msg);
         book.queueMessage(parsedMessage);
+
+        if (!gotFirstMessage && parsedMessage.type !== 'subscriptions') {
+            setTimeout(() => {
+                console.log('first message' + ': ' + JSON.stringify(parsedMessage));
+                book.initialize();
+            }, 2000);
+
+            gotFirstMessage = true;
+        }
     });
 
     wsClient.on('close', () => {

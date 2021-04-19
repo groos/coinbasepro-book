@@ -11,6 +11,7 @@ class OrderBook {
         this.testDuration = testDuration;
         this.bookCrossed = false;
         
+        this.preloadedMessages = [];
         this.messages = [];
         this.orders = {};
 
@@ -22,6 +23,7 @@ class OrderBook {
             .then(res => res.json())
             .then((json) => {
                 this.sequence = json.sequence;
+                console.log(`Starting sequence is: ${this.sequence}`)
 
                 json.asks.forEach((ask) => {
                     const orderId = ask[2];
@@ -52,18 +54,23 @@ class OrderBook {
                 });
 
                 console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
+                console.log(`Queued messages waiting: ${this.messages.length}`);
                 console.log('Starting main message handler loop');
+
+                const firstMessage = this.messages[this.messages.length-1];
+                console.log(`start sequence: ${this.sequence}, first msg sequence: ${firstMessage.sequence}`);
 
                 this.processMessagesLoop();
             });
     }
 
     processMessagesLoop() {
-        const messageCopy = Array.from(this.messages);
-        messageCopy.forEach((m) => {
+        while (this.messages.length > 0) {
+            const m = this.messages.pop();
+
             if (m.sequence <= this.sequence) {
                 console.log('Discarding message' + ': ' + JSON.stringify(m));
-                return;
+                continue;
             }
 
             const handler = this.messageHandlers[m.type];
@@ -71,9 +78,7 @@ class OrderBook {
             if (handler) {
                 handler(m);
             }
-        });  
-
-        this.messages = [];
+        }
 
         if (this.run) {
             setImmediate(this.processMessagesLoop.bind(this));
@@ -92,7 +97,7 @@ class OrderBook {
         const maxBid = _.maxBy(bids, (b) => Number(b.price));
         const minAsk = _.minBy(asks, (a) => Number(a.price));
 
-        if (logInfo) {
+        if (logInfo && Number(maxBid.price) > Number(minAsk.price)) {
             console.log('max bid' + ': ' + JSON.stringify(maxBid));
             console.log('min ask' + ': ' + JSON.stringify(minAsk));
         }
@@ -135,7 +140,7 @@ class OrderBook {
 
     queueMessage(message) {
         if (util.shouldQueueMessage(message)) {
-            this.messages.push(message);
+            this.messages.unshift(message);
         }
     }
 
