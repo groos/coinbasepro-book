@@ -63,7 +63,27 @@ describe('Inside Levels', function() {
 
         book.processMessagesLoop();
         assert.strictEqual(book.bookCrossed, true);
-    })
+    });
+
+    it('Error if lowest ask is <= highest bid', function() {
+        const book = new OrderBook(() => { }, true);
+
+        opens.forEach((m) => {
+            book.queueMessage(m);
+        });
+
+        book.queueMessage({
+            type: 'open',
+            side: 'buy',
+            product_id: 'BTC-USD',
+            price: '000.00',
+            order_id: 'babcdefgzz',
+            size: "0.75"
+        });
+
+        book.processMessagesLoop();
+        assert.strictEqual(book.bookCrossed, true);
+    });
 });
 
 console.log('Running Tests');

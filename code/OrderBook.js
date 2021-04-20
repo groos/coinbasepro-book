@@ -154,7 +154,9 @@ class OrderBook {
                 }
             }
 
-            this.printTickInfo();
+            if (!this.isTest) {
+                this.printTickInfo();
+            }
         }
     }
 
@@ -185,16 +187,12 @@ class OrderBook {
 
     checkIfOrderIsBest(order) {
         if (order.side === 'buy' && typeof this.bestBid.price === 'undefined') {
-            console.log('setting best buy as ' + ': ' + JSON.stringify(order));
             this.bestBid = order;
-
             return;
         }
 
         if (order.side === 'sell' && typeof this.bestAsk.price === 'undefined') {
-            console.log('setting best ask as ' + ': ' + JSON.stringify(order));
             this.bestAsk = order;
-
             return;
         }
 
