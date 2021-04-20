@@ -29,15 +29,11 @@ const run = async function (testDuration) {
     };
 
     const book = new OrderBook(testDuration);
-    book.socket = createWebSocket(book);
+    book.createWebSocket();
 
     rl.on('SIGINT', () => {
-        wsClient.close();
-    });
-
-    rl.on('close', () => {
-        console.log('Exiting process');
-        process.exit(0);
+        book.socket.close();
+        process.exit(0)
     });
 
     // for mocha timed test, close the socket after X seconds
