@@ -40,7 +40,7 @@ describe('Order Changes', function() {
 
 describe('Inside Levels', function() {
     it('Lowest ask is never <= to highest bid', function(done) {
-        const testDuration = 10000;
+        const testDuration = 5000;
         this.timeout(testDuration + 2000); // mocha times out tests after 2000ms by default
         app.startTest(testDuration, done);
     });

@@ -2,8 +2,6 @@ const { OrderBook } = require('./OrderBook');
 const readline = require('readline');
 const WebSocket = require('ws');
 const util = require('./util');
-const { first } = require('lodash');
-const { parse } = require('path');
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -14,7 +12,14 @@ const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const run = async function(testDuration) {
     const wsClient = new WebSocket(cbWebsocketUrl);
-    const book = new OrderBook( () => { wsClient.close() }, testDuration);
+
+    const handleAbort = () => {
+        if (!testDuration) {
+            wsClient.close();
+        }
+    };
+
+    const book = new OrderBook(handleAbort, testDuration);
 
     let gotFirstMessage = false;
 
@@ -27,16 +32,15 @@ const run = async function(testDuration) {
         }));
     });
 
-
     wsClient.on('message', (msg) => {
         const parsedMessage = JSON.parse(msg);
         book.queueMessage(parsedMessage);
 
         if (!gotFirstMessage && parsedMessage.type !== 'subscriptions') {
+            // preload 1 second of messages before initializing to make sure we dont miss one
             setTimeout(() => {
-                console.log('first message' + ': ' + JSON.stringify(parsedMessage));
                 book.initialize();
-            }, 2000);
+            }, 1000);
 
             gotFirstMessage = true;
         }
@@ -62,17 +66,17 @@ const run = async function(testDuration) {
     rl.on('close', () => {
         console.log('Exiting process');
         process.exit(0);
-    })
+    });
 
-    // for mocha test, close the socket after X secconds
+    // for mocha test, close the socket after X seconds
     if (testDuration) {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
-                const bookIsValid = !book.bookIsCrossed();
+                const bookIsValid = !book.bookCrossed;
                 resolve(bookIsValid);
                 wsClient.close();
-            }, testDuration)
-        })
+            }, testDuration);
+        });
     }
 };
 

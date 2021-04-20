@@ -6,29 +6,15 @@ const _ = require('lodash');
 const cbBookUrl = 'https://api.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
-    constructor(closeSocket, testDuration) {
+    constructor(closeSocket) {
         this.abortConnection = closeSocket;
-        this.testDuration = testDuration;
         this.bookCrossed = false;
         
-        this.preloadedMessages = [];
         this.messages = [];
         this.orders = {};
 
         this.bestBid = {};
         this.bestAsk = {};
-
-        this.run = true;
-    }
-
-    updateBestOrders(order) {
-        if (order.side === 'buy' && Number(order.price) > Number(this.bestBid.price)) {
-            this.bestBid = order;
-        }
-
-        if (order.side === 'sell' && Number(order.price) < Number(this.bestAsk.price)) {
-            this.bestAsk = order;
-        }
     }
 
     initialize() {
@@ -36,7 +22,6 @@ class OrderBook {
             .then(res => res.json())
             .then((json) => {
                 this.sequence = json.sequence;
-                console.log(`Starting sequence is: ${this.sequence}`);
 
                 const orderFromSnapshot = (snap, type, orderId) => {
                     return {
@@ -48,17 +33,15 @@ class OrderBook {
                     };
                 }
 
+                // init best ask/bids
                 this.bestAsk = orderFromSnapshot(json.asks[0], 'sell', json.bids[0][2]);
                 this.bestBid = orderFromSnapshot(json.bids[0], 'buy', json.bids[0][2]);
-
-                console.log('best ask' + ': ' + JSON.stringify(this.bestAsk));
-                console.log('best bid' + ': ' + JSON.stringify(this.bestBid));
 
                 json.asks.forEach((ask) => {
                     const orderId = ask[2];
                     const order = orderFromSnapshot(ask, 'sell', orderId);
 
-                    this.updateBestOrders(order);
+                    this.checkIfOrderIsBest(order);
 
                     this.orders[orderId] = order;
                 });
@@ -67,7 +50,7 @@ class OrderBook {
                     const orderId = bid[2];
                     const order = orderFromSnapshot(bid, 'buy', orderId);
 
-                    this.updateBestOrders(order);
+                    this.checkIfOrderIsBest(order);
 
                     this.orders[orderId] = order;
                 });
@@ -77,7 +60,6 @@ class OrderBook {
                 console.log('Starting main message handler loop');
 
                 const firstMessage = this.messages[this.messages.length-1];
-                console.log(`start sequence: ${this.sequence}, first msg sequence: ${firstMessage.sequence}`);
 
                 this.processMessagesLoop();
             });
@@ -87,39 +69,50 @@ class OrderBook {
         while (this.messages.length > 0) {
             const m = this.messages.pop();
 
-            if (m.sequence <= this.sequence) {
-                console.log('Discarding message' + ': ' + JSON.stringify(m));
-                continue;
-            }
+            if (m.sequence <= this.sequence) continue;
 
-            const handler = this.messageHandlers[m.type];
-
-            if (handler) {
-                handler(m);
+            if (this.messageHandlers[m.type]) {
+                this.messageHandlers[m.type](m);
+                this.checkBookIsCrossed();
             }
         }
 
-        if (this.run) {
-            setImmediate(this.processMessagesLoop.bind(this));
+        // use node process loop to poll our messages queue
+        setImmediate(this.processMessagesLoop.bind(this));
+    }
+
+    queueMessage(message) {
+        if (util.shouldQueueMessage(message)) {
+            this.messages.unshift(message);
         }
     }
 
-    bookIsCrossed = (logInfo) => {
-        const maxBid = this.getMaxBid();
-        const minAsk = this.getMinAsk();
+    printTickInfo() {
+        const ordersArray = Object.keys(this.orders).map(k => this.orders[k]);
 
-        if (logInfo && Number(maxBid.price) > Number(minAsk.price)) {
-            console.log('max bid' + ': ' + JSON.stringify(maxBid));
-            console.log('min ask' + ': ' + JSON.stringify(minAsk));
-        }
+        const bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
+        const bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
 
-        return Number(maxBid.price) > Number(minAsk.price);
+        console.log('');
+        bestAsks.reverse().forEach((ask) => {
+            const size = ask.remaining_size ? ask.remaining_size : ask.size;
+            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
+        });
+
+        console.log(`---------------------`);
+
+        bestBids.forEach((bid) => {
+            const size = bid.remaining_size ? bid.remaining_size : bid.size;
+            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
+        });
+        
+        console.log('');
     }
 
     messageHandlers = {
         open: (message) => {
             this.orders[message.order_id] = message;
-            this.updateBestOrders(message);
+            this.checkIfOrderIsBest(message);
         },
         done: (message) => {
             if (this.orders[message.order_id]) {
@@ -142,6 +135,10 @@ class OrderBook {
                 order.size = message.new_funds ? message.new_funds : order.size;
 
                 this.orders[message.order_id] = order;
+
+                if (this.bestBid.order_id === message.order_id || this.bestAsk.order_id === message.order_id) {
+                    this.checkIfOrderIsBest(order);
+                }
             }
         },
         match: (message) => {
@@ -152,6 +149,10 @@ class OrderBook {
 
                 makerOrder.remaining_size = `${remainingSize}`;
                 this.orders[makerOrder.order_id] = makerOrder;
+
+                if (this.bestBid.order_id === message.order_id || this.bestAsk.order_id === message.order_id) {
+                    this.checkIfOrderIsBest(makerOrder);
+                }
             }
 
             this.printTickInfo();
@@ -174,53 +175,23 @@ class OrderBook {
         return  _.minBy(asks, (a) => Number(a.price));
     }
 
-    queueMessage(message) {
-        if (util.shouldQueueMessage(message)) {
-            this.messages.unshift(message);
+    checkBookIsCrossed() {
+        const crossed = Number(this.bestAsk.price) <= Number(this.bestBid.price);
+        
+        if (crossed) {
+            this.bookCrossed = true;
+            this.abortConnection();
         }
     }
 
-    printTickInfo() {
-        const ordersArray = Object.keys(this.orders).map(k => this.orders[k]);
-
-        // In a real implementation, we would manage this list continuously rather than have to resort it on every tick
-        const bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
-        const bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
-
-        console.log('');
-        bestAsks.reverse().forEach((ask) => {
-            const size = ask.remaining_size ? ask.remaining_size : ask.size;
-            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(ask.price, 2)}`);
-        });
-        console.log(`best ask: ${JSON.stringify(this.bestAsk)}`);
-        console.log(`---------------------`);
-
-        bestBids.forEach((bid) => {
-            const size = bid.remaining_size ? bid.remaining_size : bid.size;
-            console.log(`${util.formatNumber(size, 5)} @ ${util.formatNumber(bid.price, 2)}`);
-        });
-        console.log('best bid' + ': ' + JSON.stringify(this.bestBid));
-        console.log('');
-
-        if (this.bookIsCrossed()) {
-            this.bookIsCrossed(true);
-            console.log(`BOOK IS CROSSED - EXITING`);
-            this.abortConnection();
+    checkIfOrderIsBest(order) {
+        if (order.side === 'buy' && Number(order.price) > Number(this.bestBid.price)) {
+            this.bestBid = order;
         }
 
-        /* print format
-            1.50000 @ 60858.43
-            0.50000 @ 60858.27
-            0.28740 @ 60857.64
-            0.48960 @ 60852.87
-            0.40010 @ 60851.26
-            ---------------------
-            0.07000 @ 60839.02
-            0.45060 @ 60832.34
-            0.29780 @ 60830.87
-            1.50000 @ 60820.31
-            0.50000 @ 60818.47
-        */
+        if (order.side === 'sell' && Number(order.price) < Number(this.bestAsk.price)) {
+            this.bestAsk = order;
+        }
     }
 }
 
