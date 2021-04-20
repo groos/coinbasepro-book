@@ -8,26 +8,6 @@ const rl = readline.createInterface({
 });
 
 const run = async function (testDuration) {
-    let resync = false;
-
-    const handleAbort = (reboot) => {
-        if (reboot) {
-            resyncBook();
-            return;
-        }
-
-        if (!testDuration) {
-            wsClient.close();
-        }
-    };
-
-    const resyncBook = async () => {
-        resync = true;
-        wsClient.close();
-
-        // create a new web socket with the book
-    };
-
     const book = new OrderBook(testDuration);
     book.createWebSocket();
 
@@ -42,7 +22,7 @@ const run = async function (testDuration) {
             setTimeout(() => {
                 const bookIsValid = !book.bookCrossed;
                 resolve(bookIsValid);
-                wsClient.close();
+                book.socket.close();
             }, testDuration);
         });
     }

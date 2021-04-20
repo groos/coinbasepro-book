@@ -71,45 +71,33 @@ class OrderBook {
             });
     }
 
-    async processMessagesLoop() {
+    processMessagesLoop() {
         this.messages.sort((a, b) => {
             return b.sequence - a.sequence;
         });
         
         while (this.messages.length > 0 && !this.bookCrossed) {
             const m = this.messages.pop();
-            //console.log('processed message' + ': ' + JSON.stringify(m));
             if (m.sequence <= this.sequence) continue;
 
             if (this.messageHandlers[m.type]) {
                 this.messageHandlers[m.type](m);
-
-                
-
                 this.checkBookIsCrossed();
             }
         }
 
-        
-        if (this.bookCrossed) {
-            //console.log('book is crossed');
+        if (!this.isTest && this.bookCrossed) {
             this.resetData()
-            //await this.socket.close();
-            await this.socket.close();
+            this.socket.close();
             this.createWebSocket(this);
-
             return;
         }
 
-        //console.log('book is not crossed');
-
-        // use node process loop to poll our messages queue
         setImmediate(this.processMessagesLoop.bind(this));
     }
 
     queueMessage(message) {
         if (util.shouldQueueMessage(message)) {
-            //console.log('queueing message' + ': ' + JSON.stringify(message));
             this.messages.unshift(message);
         }
     }
