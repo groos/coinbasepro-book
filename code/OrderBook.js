@@ -154,9 +154,7 @@ class OrderBook {
                 }
             }
 
-            if (!this.isTest) {
-                this.printTickInfo();
-            }
+            this.printTickInfo();
         }
     }
 
@@ -178,7 +176,7 @@ class OrderBook {
 
     checkBookIsCrossed() {
         const crossed = Number(this.bestAsk.price) <= Number(this.bestBid.price);
-        
+
         if (crossed) {
             this.bookCrossed = true;
             this.abortConnection();
@@ -186,6 +184,20 @@ class OrderBook {
     }
 
     checkIfOrderIsBest(order) {
+        if (order.side === 'buy' && typeof this.bestBid.price === 'undefined') {
+            console.log('setting best buy as ' + ': ' + JSON.stringify(order));
+            this.bestBid = order;
+
+            return;
+        }
+
+        if (order.side === 'sell' && typeof this.bestAsk.price === 'undefined') {
+            console.log('setting best ask as ' + ': ' + JSON.stringify(order));
+            this.bestAsk = order;
+
+            return;
+        }
+
         if (order.side === 'buy' && Number(order.price) > Number(this.bestBid.price)) {
             this.bestBid = order;
         }

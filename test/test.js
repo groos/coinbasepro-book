@@ -44,6 +44,26 @@ describe('Inside Levels', function() {
         this.timeout(testDuration + 2000); // mocha times out tests after 2000ms by default
         app.startTest(testDuration, done);
     });
+
+    it('Error if lowest ask is <= highest bid', function() {
+        const book = new OrderBook(() => { }, true);
+
+        opens.forEach((m) => {
+            book.queueMessage(m);
+        });
+
+        book.queueMessage({
+            type: 'open',
+            side: 'buy',
+            product_id: 'BTC-USD',
+            price: '999999.00',
+            order_id: 'babcdefgzz',
+            size: "0.75"
+        });
+
+        book.processMessagesLoop();
+        assert.strictEqual(book.bookCrossed, true);
+    })
 });
 
 console.log('Running Tests');
