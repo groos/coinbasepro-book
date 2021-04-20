@@ -1,15 +1,14 @@
 const { OrderBook } = require('./OrderBook');
-const {createWebSocket} = require('./socket');
 const readline = require('readline');
-
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
 
 const run = async function (testDuration) {
     const book = new OrderBook(testDuration);
-    book.createWebSocket();
+    book.connectWebSocket();
+
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
 
     rl.on('SIGINT', () => {
         book.socket.close();
@@ -40,4 +39,4 @@ module.exports = {
             results();
         });
     }
-}
+};

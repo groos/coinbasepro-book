@@ -42,10 +42,6 @@ const createWebSocket = (book) => {
             console.log('Unsubscribed from channel');
             wsClient.terminate();
             console.log('Socket connection closed');
-            
-            
-
-            //rl.close(); // todo - handle closing this vs when we are resyncing the book
         });
     });
 

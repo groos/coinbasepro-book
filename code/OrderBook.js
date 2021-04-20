@@ -21,7 +21,7 @@ class OrderBook {
         this.bestAsk = {};
     }
 
-    createWebSocket() {
+    connectWebSocket() {
         this.socket = createWebSocket(this);
     }
 
@@ -63,10 +63,6 @@ class OrderBook {
                     this.orders[orderId] = order;
                 });
 
-                console.log(`Total Orders from Book Snapshot: ${Object.keys(this.orders).length}`);
-                console.log(`Queued messages waiting: ${this.messages.length}`);
-                console.log('Starting main message handler loop');
-
                 this.processMessagesLoop();
             });
     }
@@ -89,7 +85,7 @@ class OrderBook {
         if (!this.isTest && this.bookCrossed) {
             this.resetData()
             this.socket.close();
-            this.createWebSocket(this);
+            this.connectWebSocket(this);
             return;
         }
 
