@@ -2,15 +2,22 @@ const { OrderBook } = require('./OrderBook');
 const readline = require('readline');
 const WebSocket = require('ws');
 
+const timeout = 30000;
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
-  });
+});
 
 const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
-const run = async function(testDuration) {
+const run = async function (testDuration) {
     const wsClient = new WebSocket(cbWebsocketUrl);
+
+    wsClient.pingTimeout = setTimeout(() => {
+        console.log(`Book ran for ${timeout} seconds. Terminating based on timeout configuration.`);
+        wsClient.terminate();
+    }, timeout);
 
     const handleAbort = () => {
         if (!testDuration) {
@@ -42,6 +49,8 @@ const run = async function(testDuration) {
     });
 
     wsClient.on('close', () => {
+        clearTimeout(wsClient.pingTimeout);
+
         wsClient.send(JSON.stringify({
             type: 'unsubscribe',
             product_ids: ['BTC-USD'],

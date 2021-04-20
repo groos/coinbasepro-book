@@ -65,6 +65,10 @@ class OrderBook {
     }
 
     processMessagesLoop() {
+        this.messages.sort((a, b) => {
+            return b.sequence - a.sequence;
+        });
+        
         while (this.messages.length > 0) {
             const m = this.messages.pop();
 
