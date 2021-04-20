@@ -11,6 +11,10 @@ class OrderBook {
         this.resetData();
     }
 
+    connectWebSocket() {
+        this.socket = createWebSocket(this);
+    }
+
     resetData() {
         this.bookCrossed = false;
         
@@ -21,11 +25,7 @@ class OrderBook {
         this.bestAsk = {};
     }
 
-    connectWebSocket() {
-        this.socket = createWebSocket(this);
-    }
-
-    initialize() {
+    syncWithBookSnapshot() {
         fetch(cbBookUrl)
             .then(res => res.json())
             .then((json) => {
@@ -50,7 +50,6 @@ class OrderBook {
                     const order = orderFromSnapshot(ask, 'sell', orderId);
 
                     this.checkIfOrderIsBest(order);
-
                     this.orders[orderId] = order;
                 });
 
@@ -59,7 +58,6 @@ class OrderBook {
                     const order = orderFromSnapshot(bid, 'buy', orderId);
 
                     this.checkIfOrderIsBest(order);
-
                     this.orders[orderId] = order;
                 });
 

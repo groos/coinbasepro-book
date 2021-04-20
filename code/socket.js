@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 
-const timeout = 30000;
+const timeout = 50000;
 const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
 
 const createWebSocket = (book) => {
@@ -12,7 +12,6 @@ const createWebSocket = (book) => {
     }, timeout);
 
     wsClient.on('open', () => {
-        console.log('Subscribing to CB "full" channel');
         wsClient.send(JSON.stringify({
             type: 'subscribe',
             product_ids: ['BTC-USD'],
@@ -20,13 +19,14 @@ const createWebSocket = (book) => {
         }));
     });
 
+    // start queueing messages before syncing with snapshot
     let gotFirstMessage = false;
     wsClient.on('message', (msg) => {
         const parsedMessage = JSON.parse(msg);
         book.queueMessage(parsedMessage);
 
         if (!gotFirstMessage && parsedMessage.type !== 'subscriptions') {
-            book.initialize();
+            book.syncWithBookSnapshot();
             gotFirstMessage = true;
         }
     });
@@ -39,9 +39,7 @@ const createWebSocket = (book) => {
             product_ids: ['BTC-USD'],
             channels: ['full']
         }), () => {
-            console.log('Unsubscribed from channel');
             wsClient.terminate();
-            console.log('Socket connection closed');
         });
     });
 

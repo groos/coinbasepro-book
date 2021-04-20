@@ -1,5 +1,4 @@
 const assert = require('assert');
-const app = require('../code/app');
 const { opens, changes } = require('./testData');
 const { OrderBook } = require('../code/OrderBook');
 
@@ -75,12 +74,6 @@ describe('Inside Levels', function() {
 
         book.processMessagesLoop();
         assert.strictEqual(book.bookCrossed, true);
-    });
-
-    it('Lowest ask is never <= to highest bid', function(done) {
-        const testDuration = 10000;
-        this.timeout(testDuration + 2000); // mocha times out tests after 2000ms by default
-        app.startTimedTest(testDuration, done);
     });
 });
 
