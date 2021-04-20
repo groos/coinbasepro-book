@@ -181,6 +181,7 @@ class OrderBook {
 
         if (crossed) {
             this.bookCrossed = true;
+            console.log('Book was crossed. Exiting');
             this.abortConnection();
         }
     }
