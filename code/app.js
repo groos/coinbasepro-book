@@ -1,67 +1,35 @@
 const { OrderBook } = require('./OrderBook');
+const {createWebSocket} = require('./socket');
 const readline = require('readline');
-const WebSocket = require('ws');
-
-const timeout = 30000;
 
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
 
-const cbWebsocketUrl = 'wss://ws-feed.pro.coinbase.com';
-
 const run = async function (testDuration) {
-    const wsClient = new WebSocket(cbWebsocketUrl);
+    let resync = false;
 
-    wsClient.pingTimeout = setTimeout(() => {
-        console.log(`Book ran for ${timeout} seconds. Terminating based on timeout configuration.`);
-        wsClient.terminate();
-    }, timeout);
+    const handleAbort = (reboot) => {
+        if (reboot) {
+            resyncBook();
+            return;
+        }
 
-    const handleAbort = () => {
         if (!testDuration) {
             wsClient.close();
         }
     };
 
-    const book = new OrderBook(handleAbort, testDuration);
+    const resyncBook = async () => {
+        resync = true;
+        wsClient.close();
 
-    wsClient.on('open', () => {
-        console.log('Subscribing to CB "full" channel');
-        wsClient.send(JSON.stringify({
-            type: 'subscribe',
-            product_ids: ['BTC-USD'],
-            channels: ['full']
-        }));
-    });
+        // create a new web socket with the book
+    };
 
-    let gotFirstMessage = false;
-    wsClient.on('message', (msg) => {
-        const parsedMessage = JSON.parse(msg);
-        book.queueMessage(parsedMessage);
-
-        if (!gotFirstMessage && parsedMessage.type !== 'subscriptions') {
-            // preload buffer of messages before initializing to make sure we dont miss one
-            setTimeout(() => { book.initialize(); }, 2000);
-            gotFirstMessage = true;
-        }
-    });
-
-    wsClient.on('close', () => {
-        clearTimeout(wsClient.pingTimeout);
-
-        wsClient.send(JSON.stringify({
-            type: 'unsubscribe',
-            product_ids: ['BTC-USD'],
-            channels: ['full']
-        }), () => {
-            console.log('Unsubscribed from channel');
-            wsClient.terminate();
-            console.log('Socket connection closed');
-            rl.close();
-        });
-    });
+    const book = new OrderBook(testDuration);
+    book.socket = createWebSocket(book);
 
     rl.on('SIGINT', () => {
         wsClient.close();

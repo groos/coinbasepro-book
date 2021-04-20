@@ -1,14 +1,18 @@
 const fetch = require('node-fetch');
 const util = require('./util');
 const _ = require('lodash');
+const { createWebSocket } = require('./socket');
 
-//const cbBookUrl = 'https://api-public.sandbox.pro.coinbase.com/products/BTC-USD/book?level=3'
 const cbBookUrl = 'https://api.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
-    constructor(closeSocket, isTest) {
-        this.abortConnection = closeSocket;
+    constructor(isTest) {
         this.isTest = isTest;
+        
+        this.resetData();
+    }
+
+    resetData() {
         this.bookCrossed = false;
         
         this.messages = [];
@@ -64,7 +68,7 @@ class OrderBook {
             });
     }
 
-    processMessagesLoop() {
+    async processMessagesLoop() {
         this.messages.sort((a, b) => {
             return b.sequence - a.sequence;
         });
@@ -78,6 +82,19 @@ class OrderBook {
                 this.messageHandlers[m.type](m);
                 this.checkBookIsCrossed();
             }
+        }
+
+        // 
+        //if (this.bookCrossed) {
+        if (!this.bookCrossed) { // inverting for testing
+            console.log('Book was crossed. Exiting');
+
+            this.resetData()
+            await this.socket.close();
+            this.socket = createWebSocket(this);
+
+            //this.abortConnection(true);
+            return;
         }
 
         // use node process loop to poll our messages queue
@@ -177,13 +194,7 @@ class OrderBook {
     }
 
     checkBookIsCrossed() {
-        const crossed = Number(this.bestAsk.price) <= Number(this.bestBid.price);
-
-        if (crossed) {
-            this.bookCrossed = true;
-            console.log('Book was crossed. Exiting');
-            this.abortConnection();
-        }
+        this.bookCrossed = Number(this.bestAsk.price) <= Number(this.bestBid.price);
     }
 
     checkIfOrderIsBest(order) {
