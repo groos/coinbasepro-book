@@ -1,7 +1,6 @@
 const { OrderBook } = require('./OrderBook');
 const readline = require('readline');
 const WebSocket = require('ws');
-const util = require('./util');
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -20,8 +19,6 @@ const run = async function(testDuration) {
     };
 
     const book = new OrderBook(handleAbort, testDuration);
-
-    
 
     wsClient.on('open', () => {
         console.log('Subscribing to CB "full" channel');
