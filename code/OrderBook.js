@@ -6,8 +6,9 @@ const _ = require('lodash');
 const cbBookUrl = 'https://api.pro.coinbase.com/products/BTC-USD/book?level=3'
 
 class OrderBook {
-    constructor(closeSocket) {
+    constructor(closeSocket, isTest) {
         this.abortConnection = closeSocket;
+        this.isTest = isTest;
         this.bookCrossed = false;
         
         this.messages = [];
@@ -33,7 +34,7 @@ class OrderBook {
                     };
                 }
 
-                // init best ask/bids
+                // init some default best ask/bids
                 this.bestAsk = orderFromSnapshot(json.asks[0], 'sell', json.bids[0][2]);
                 this.bestBid = orderFromSnapshot(json.bids[0], 'buy', json.bids[0][2]);
 
@@ -58,8 +59,6 @@ class OrderBook {
                 console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
                 console.log(`Queued messages waiting: ${this.messages.length}`);
                 console.log('Starting main message handler loop');
-
-                const firstMessage = this.messages[this.messages.length-1];
 
                 this.processMessagesLoop();
             });
@@ -155,7 +154,9 @@ class OrderBook {
                 }
             }
 
-            this.printTickInfo();
+            if (!this.isTest) {
+                this.printTickInfo();
+            }
         }
     }
 
