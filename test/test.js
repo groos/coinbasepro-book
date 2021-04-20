@@ -1,5 +1,4 @@
 const assert = require('assert');
-const app = require('../code/app');
 const { opens, changes } = require('./testData');
 const { OrderBook } = require('../code/OrderBook');
 
@@ -37,50 +36,46 @@ describe('Order Changes', function() {
 });
 
 describe('Inside Levels', function() {
-    it('Lowest ask is never <= to highest bid', function(done) {
-        const testDuration = 5000;
-        this.timeout(testDuration + 2000); // mocha times out tests after 2000ms by default
-        app.startTimedTest(testDuration, done);
-    });
-
-    it('Error if lowest ask is <= highest bid', function() {
-        const book = new OrderBook(() => { }, true);
+    it('Book does not become crossed if high crossing bid is added', function() {
+        const book = new OrderBook(true);
 
         opens.forEach((m) => {
             book.queueMessage(m);
         });
 
+        const highPriceId = 'babcdefgzz';
         book.queueMessage({
             type: 'open',
             side: 'buy',
             product_id: 'BTC-USD',
             price: '999999.00',
-            order_id: 'babcdefgzz',
+            order_id: highPriceId,
             size: "0.75"
         });
 
         book.processMessagesLoop();
-        assert.strictEqual(book.bookCrossed, true);
+        assert.strictEqual(book.bestOrders.filter(o => o.order_id === highPriceId).length === 0, true);
     });
 
-    it('Error if lowest ask is <= highest bid', function() {
-        const book = new OrderBook(() => { }, true);
+    it('Book does not become crossed if low crossing ask is added', function() {
+        const book = new OrderBook(true);
 
         opens.forEach((m) => {
             book.queueMessage(m);
         });
 
+        const lowPriceId = 'babcdefgzz';
         book.queueMessage({
             type: 'open',
             side: 'buy',
             product_id: 'BTC-USD',
             price: '000.00',
-            order_id: 'babcdefgzz',
+            order_id: lowPriceId,
             size: "0.75"
         });
 
         book.processMessagesLoop();
-        assert.strictEqual(book.bookCrossed, true);
+        assert.strictEqual(book.bestOrders.filter(o => o.order_id === lowPriceId).length === 0, true);
     });
 });
 
