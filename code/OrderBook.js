@@ -15,12 +15,19 @@ class OrderBook {
         this.socket = createWebSocket(this);
     }
 
+    resetSocket() {
+        this.resetData()
+        this.socket.close();
+        this.connectWebSocket(this);
+    }
+
     resetData() {
-        this.bookCrossed = false;
+        this.bookNeedsSnapshotSync = false;
         
         this.messages = [];
         this.orders = {};
 
+        this.bestOrders = [];
         this.bestBid = {};
         this.bestAsk = {};
     }
@@ -41,7 +48,6 @@ class OrderBook {
                     };
                 }
 
-                // init some default best ask/bids
                 this.bestAsk = orderFromSnapshot(json.asks[0], 'sell', json.bids[0][2]);
                 this.bestBid = orderFromSnapshot(json.bids[0], 'buy', json.bids[0][2]);
 
@@ -70,20 +76,18 @@ class OrderBook {
             return b.sequence - a.sequence;
         });
         
-        while (this.messages.length > 0 && !this.bookCrossed) {
+        while (this.messages.length > 0 && !this.bookNeedsSnapshotSync) {
             const m = this.messages.pop();
             if (m.sequence <= this.sequence) continue;
 
             if (this.messageHandlers[m.type]) {
                 this.messageHandlers[m.type](m);
-                this.checkBookIsCrossed();
+                this.checkBookOutOfSync();
             }
         }
 
-        if (!this.isTest && this.bookCrossed) {
-            this.resetData()
-            this.socket.close();
-            this.connectWebSocket(this);
+        if (!this.isTest && this.bookNeedsSnapshotSync) {
+            this.resetSocket();
             return;
         }
 
@@ -97,10 +101,8 @@ class OrderBook {
     }
 
     printTickInfo() {
-        const ordersArray = Object.keys(this.orders).map(k => this.orders[k]);
-
-        const bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
-        const bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
+        const bestBids = util.sortAndTake5Best(this.bestOrders.filter(o => o.side === 'buy'), false);
+        const bestAsks = util.sortAndTake5Best(this.bestOrders.filter(o => o.side === 'sell'), true);
 
         console.log('');
         bestAsks.reverse().forEach((ask) => {
@@ -160,8 +162,17 @@ class OrderBook {
                 this.checkIfOrderIsBest(makerOrder);
             }
 
-            if (!this.isTest && !this.checkBookIsCrossed()) {
-                this.printTickInfo();
+            if (!this.checkBookOutOfSync()) {
+                const ordersArray = Object.keys(this.orders).map(k => this.orders[k]);
+                const bestBids = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'buy'), false);
+                const bestAsks = util.sortAndTake5Best(ordersArray.filter(o => o.side === 'sell'), true);
+
+                // build output data for this tick
+                this.bestOrders = bestBids.concat(bestAsks);
+
+                if (!this.isTest) {
+                    this.printTickInfo();
+                }
             }
         }
     }
@@ -182,8 +193,9 @@ class OrderBook {
         return  _.minBy(asks, (a) => Number(a.price));
     }
 
-    checkBookIsCrossed() {
-        this.bookCrossed = Number(this.bestAsk.price) <= Number(this.bestBid.price);
+    checkBookOutOfSync() {
+        this.bookNeedsSnapshotSync = Number(this.bestAsk.price) <= Number(this.bestBid.price);
+        return this.bookNeedsSnapshotSync;
     }
 
     checkIfOrderIsBest(order) {

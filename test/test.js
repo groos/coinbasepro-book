@@ -36,44 +36,46 @@ describe('Order Changes', function() {
 });
 
 describe('Inside Levels', function() {
-    it('Error if lowest ask is <= highest bid', function() {
+    it('Book does not become crossed if high crossing bid is added', function() {
         const book = new OrderBook(true);
 
         opens.forEach((m) => {
             book.queueMessage(m);
         });
 
+        const highPriceId = 'babcdefgzz';
         book.queueMessage({
             type: 'open',
             side: 'buy',
             product_id: 'BTC-USD',
             price: '999999.00',
-            order_id: 'babcdefgzz',
+            order_id: highPriceId,
             size: "0.75"
         });
 
         book.processMessagesLoop();
-        assert.strictEqual(book.bookCrossed, true);
+        assert.strictEqual(book.bestOrders.filter(o => o.order_id === highPriceId).length === 0, true);
     });
 
-    it('Error if lowest ask is <= highest bid', function() {
+    it('Book does not become crossed if low crossing ask is added', function() {
         const book = new OrderBook(true);
 
         opens.forEach((m) => {
             book.queueMessage(m);
         });
 
+        const lowPriceId = 'babcdefgzz';
         book.queueMessage({
             type: 'open',
             side: 'buy',
             product_id: 'BTC-USD',
             price: '000.00',
-            order_id: 'babcdefgzz',
+            order_id: lowPriceId,
             size: "0.75"
         });
 
         book.processMessagesLoop();
-        assert.strictEqual(book.bookCrossed, true);
+        assert.strictEqual(book.bestOrders.filter(o => o.order_id === lowPriceId).length === 0, true);
     });
 });
 
