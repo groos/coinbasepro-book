@@ -21,7 +21,7 @@ const run = async function(testDuration) {
 
     const book = new OrderBook(handleAbort, testDuration);
 
-    let gotFirstMessage = false;
+    
 
     wsClient.on('open', () => {
         console.log('Subscribing to CB "full" channel');
@@ -32,16 +32,14 @@ const run = async function(testDuration) {
         }));
     });
 
+    let gotFirstMessage = false;
     wsClient.on('message', (msg) => {
         const parsedMessage = JSON.parse(msg);
         book.queueMessage(parsedMessage);
 
         if (!gotFirstMessage && parsedMessage.type !== 'subscriptions') {
-            // preload 1 second of messages before initializing to make sure we dont miss one
-            setTimeout(() => {
-                book.initialize();
-            }, 1000);
-
+            // preload buffer of messages before initializing to make sure we dont miss one
+            setTimeout(() => { book.initialize(); }, 2000);
             gotFirstMessage = true;
         }
     });
@@ -68,7 +66,7 @@ const run = async function(testDuration) {
         process.exit(0);
     });
 
-    // for mocha test, close the socket after X seconds
+    // for mocha timed test, close the socket after X seconds
     if (testDuration) {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -84,15 +82,12 @@ module.exports = {
     start: () => {
         run();
     },
-    startTest: (testDuration, done) => {
+    startTimedTest: (testDuration, done) => {
         return new Promise(async (resolve, reject) => {
             const passed = await run(testDuration);
+            const results = passed ? done : () => done(new Error('High Bid was greater than or equal to Low Ask'));
 
-            if (passed) {
-                done();
-            } else {
-                done(new Error('High Bid was greater than or equal to Low Ask'));
-            }
+            results();
         });
     }
 }

@@ -56,7 +56,7 @@ class OrderBook {
                     this.orders[orderId] = order;
                 });
 
-                console.log(`Total Orders from CB Book: ${Object.keys(this.orders).length}`);
+                console.log(`Total Orders from Book Snapshot: ${Object.keys(this.orders).length}`);
                 console.log(`Queued messages waiting: ${this.messages.length}`);
                 console.log('Starting main message handler loop');
 
@@ -135,9 +135,7 @@ class OrderBook {
 
                 this.orders[message.order_id] = order;
 
-                if (this.bestBid.order_id === message.order_id || this.bestAsk.order_id === message.order_id) {
-                    this.checkIfOrderIsBest(order);
-                }
+                this.checkIfOrderIsBest(order);
             }
         },
         match: (message) => {
@@ -149,9 +147,7 @@ class OrderBook {
                 makerOrder.remaining_size = `${remainingSize}`;
                 this.orders[makerOrder.order_id] = makerOrder;
 
-                if (this.bestBid.order_id === message.order_id || this.bestAsk.order_id === message.order_id) {
-                    this.checkIfOrderIsBest(makerOrder);
-                }
+                this.checkIfOrderIsBest(makerOrder);
             }
 
             if (!this.isTest) {
@@ -198,10 +194,12 @@ class OrderBook {
 
         if (order.side === 'buy' && Number(order.price) > Number(this.bestBid.price)) {
             this.bestBid = order;
+            return;
         }
 
         if (order.side === 'sell' && Number(order.price) < Number(this.bestAsk.price)) {
             this.bestAsk = order;
+            return;
         }
     }
 }
